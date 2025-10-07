@@ -1,0 +1,72 @@
+# Example Valid Microsoft Sentinel Analytics Rule
+# This file demonstrates a properly formatted detection
+
+id: c6a213e4-f321-4f78-b12a-3e0e7d56e29a
+name: "Suspicious PowerShell Command Execution"
+displayName: "Suspicious PowerShell Command Execution with Encoding"
+version: "1.0.1"
+lastModified: "2025-10-05T12:45:00Z"
+kind: "Scheduled"
+
+description: "Detects PowerShell command execution with known malicious or suspicious flags and commands, which may indicate an attempt to evade detection, execute payloads, or perform other malicious activity."
+
+severity: "Medium"
+enabled: true
+
+queryFrequency: "5m"
+queryPeriod: "5m"
+triggerOperator: "GreaterThan"
+triggerThreshold: 0
+
+tactics:
+  - "Defense Evasion"
+  - "Execution"
+
+relevantTechniques:
+  - "T1059.001"
+  - "T1055"
+
+query: |
+  SecurityEvent
+  | where EventID == 4688 and CommandLine has "powershell.exe"
+  | where CommandLine has_any("-EncodedCommand", "-NonInteractive", "-ExecutionPolicy Bypass", "IEX")
+  | summarize count() by Computer, Account, CommandLine, bin(TimeGenerated, 5m)
+  | extend AccountCustomEntity = Account, HostCustomEntity = Computer
+
+suppressionEnabled: true
+
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: "1h"
+    matchingMethod: "Selected"
+    groupByEntities:
+      - "Account"
+      - "Host"
+    groupByAlertDetails:
+      - "AlertDisplayName"
+    groupByCustomDetails:
+      - "CommandLine"
+
+eventGroupingSettings:
+  aggregationKind: "AlertPerResult"
+
+entityMappings:
+  - entityType: "Account"
+    fieldMappings:
+      - identifier: "FullName"
+        columnName: "AccountCustomEntity"
+  - entityType: "Host"
+    fieldMappings:
+      - identifier: "FullName"
+        columnName: "HostCustomEntity"
+
+customDetails:
+  - name: "CommandLine"
+    columnName: "CommandLine"
+
+alertDetailsOverride:
+  alertDisplayNameFormat: "Suspicious PowerShell command on host: {0}"
+  alertDescriptionFormat: "A suspicious PowerShell command was executed on host. Please investigate."

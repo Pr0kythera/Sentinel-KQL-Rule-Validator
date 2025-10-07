@@ -1,0 +1,62 @@
+# Example Invalid Microsoft Sentinel Analytics Rule
+# This file intentionally contains errors for testing
+
+# ERROR: Invalid GUID format
+id: not-a-valid-guid-format
+
+name: "Test Invalid Detection"
+displayName: "Test Invalid Detection Display Name"
+version: "1.0.0"
+kind: "Scheduled"
+
+description: "This is a test detection with intentional errors"
+
+severity: "High"
+
+# ERROR: Boolean as string instead of bool
+enabled: "true"
+
+# ERROR: queryFrequency exceeds queryPeriod
+queryFrequency: "1h"
+queryPeriod: "30m"
+
+triggerOperator: "GreaterThan"
+triggerThreshold: 0
+
+tactics:
+  - "Initial Access"
+
+relevantTechniques:
+  - "T1078"
+
+# ERROR: Invalid KQL syntax (typo in 'sort')
+query: |
+  SecurityEvent
+  | where EventID == 4625
+  | sorty by TimeGenerated desc
+  | project TimeGenerated, Computer, Account, IpAddress
+  | extend AccountEntity = Account, HostEntity = Computer
+
+suppressionEnabled: false
+
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: false
+    reopenClosedIncident: false
+    lookbackDuration: "5m"
+    matchingMethod: "AllEntities"
+
+eventGroupingSettings:
+  aggregationKind: "SingleAlert"
+
+# ERROR: Entity mapping references column not in query output
+entityMappings:
+  - entityType: "Account"
+    fieldMappings:
+      - identifier: "Name"
+        columnName: "NonExistentColumn"
+  - entityType: "Host"
+    fieldMappings:
+      - identifier: "HostName"
+        columnName: "HostEntity"

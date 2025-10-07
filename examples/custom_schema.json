@@ -1,0 +1,53 @@
+{
+  "database": "CustomSecurityDB",
+  "tables": {
+    "SecurityEvent": {
+      "columns": {
+        "TimeGenerated": "datetime",
+        "Computer": "string",
+        "Account": "string",
+        "EventID": "int",
+        "CommandLine": "string",
+        "ProcessName": "string",
+        "WorkstationName": "string",
+        "IpAddress": "string"
+      }
+    },
+    "CustomAppLogs": {
+      "columns": {
+        "TimeGenerated": "datetime",
+        "ApplicationName": "string",
+        "Severity": "string",
+        "Message": "string",
+        "UserId": "string",
+        "SessionId": "string",
+        "ErrorCode": "int",
+        "SourceIP": "string"
+      }
+    },
+    "NetworkTrafficLogs": {
+      "columns": {
+        "TimeGenerated": "datetime",
+        "SourceIP": "string",
+        "DestinationIP": "string",
+        "SourcePort": "int",
+        "DestinationPort": "int",
+        "Protocol": "string",
+        "BytesSent": "long",
+        "BytesReceived": "long",
+        "Action": "string"
+      }
+    },
+    "AuthenticationEvents": {
+      "columns": {
+        "TimeGenerated": "datetime",
+        "UserName": "string",
+        "SourceIP": "string",
+        "AuthMethod": "string",
+        "Result": "string",
+        "FailureReason": "string",
+        "Application": "string"
+      }
+    }
+  }
+}
