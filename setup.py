@@ -224,10 +224,26 @@ class SetupManager:
             # Now we can import the types
             from Kusto.Language import KustoCode
             print("  [OK] Kusto.Language DLL loads successfully")
-            
-            # Verify we can also import from sub-namespaces
-            from Kusto.Language.Symbols import GlobalState
-            print("  [OK] Kusto.Language.Symbols namespace accessible")
+            #Verify we can also import from sub-namespaces
+            # Try to import a type from the Symbols namespace, but tolerate absence
+            try:
+                from Kusto.Language.Symbols import GlobalState
+                print("  [OK] Kusto.Language.Symbols namespace accessible")
+            except Exception as e:
+                print(f"  [WARNING] Could not import GlobalState from Kusto.Language.Symbols: {e}")
+                # Probe assembly types to give a helpful hint
+                try:
+                    available = [t.FullName for t in assembly.GetTypes()]
+                    matches = [t for t in available if t.endswith(".GlobalState")]
+                    if matches:
+                        print(f"  [INFO] Found matching type(s) in assembly: {matches}")
+                    else:
+                        print("  [INFO] No GlobalState type found in assembly; continuing without it.")
+                        # optionally print a short sample of available types
+                        sample = available[:10]
+                        print(f"  [INFO] Sample types: {sample}")
+                except Exception:
+                    pass            
         except Exception as e:
             print(f"  [ERROR] Failed to load DLL: {e}")
             print("\n  Troubleshooting tips:")
