@@ -237,13 +237,25 @@ class SetupManager:
                     matches = [t for t in available if t.endswith(".GlobalState")]
                     if matches:
                         print(f"  [INFO] Found matching type(s) in assembly: {matches}")
+                        # If the GlobalState type is present under a different namespace, import it from there
+                        full_name = matches[0]  # use first match
+                        ns_parts = full_name.split('.')[:-1]
+                        type_name = full_name.split('.')[-1]
+                        ns = ".".join(ns_parts)
+                        try:
+                            module = __import__(ns, fromlist=[type_name])
+                            GlobalState = getattr(module, type_name)
+                            print(f"  [OK] Imported {type_name} from {ns}")
+                        except Exception as ie:
+                            print(f"  [WARNING] Failed to import {type_name} from {ns}: {ie}")
+                            print("  [INFO] Continuing without explicit GlobalState import.")
                     else:
                         print("  [INFO] No GlobalState type found in assembly; continuing without it.")
                         # optionally print a short sample of available types
                         sample = available[:10]
                         print(f"  [INFO] Sample types: {sample}")
                 except Exception:
-                    pass            
+                    pass             
         except Exception as e:
             print(f"  [ERROR] Failed to load DLL: {e}")
             print("\n  Troubleshooting tips:")
