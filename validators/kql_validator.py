@@ -47,7 +47,7 @@ class KQLValidator(BaseValidator):
         # Build GlobalState if schema provided
         if schema_config:
             self.global_state = self._build_global_state(schema_config)
-    
+
     def _load_kusto_dll(self):
         """Load Kusto.Language DLL via Python.NET"""
         if KQLValidator._dll_loaded:
@@ -59,14 +59,21 @@ class KQLValidator(BaseValidator):
             self._configure_runtime()
             
             # Import Python.NET AFTER runtime is configured
-            import clr
+            try:
+                import clr
+            except Exception as e:
+                # Only treat this as pythonnet missing
+                raise ImportError(
+                    "Python.NET not installed. Install with: pip install pythonnet\n"
+                    f"Original error: {e}"
+                )
             
             # Find the DLL path
             dll_path = self._find_dll_path()
             if not dll_path:
                 raise FileNotFoundError(
                     "Kusto.Language.dll not found in expected locations.\n"
-                    "Please build the DLL using: python setup.py build-dll"
+                    "Please build the DLL using: python [setup.py](http://_vscodecontentref_/18) build-dll"
                 )
             
             # Resolve to absolute path first (critical for cross-platform compatibility)
@@ -79,37 +86,93 @@ class KQLValidator(BaseValidator):
             if not dll_absolute.exists():
                 raise FileNotFoundError(
                     f"Kusto.Language.dll not found at resolved path: {dll_absolute}\n"
-                    "Please build the DLL using: python setup.py build-dll"
+                    "Please build the DLL using: python [setup.py](http://_vscodecontentref_/19) build-dll"
                 )
             
-            # FIXED: Use Assembly.LoadFrom instead of AddReference for full file paths
-            # AddReference treats the path as an assembly name and appends metadata
+            # Use Assembly.LoadFrom to load the physical DLL file
             import System
             assembly = System.Reflection.Assembly.LoadFrom(str(dll_absolute))
             
-            # Now register the loaded assembly with Python.NET using its simple name
-            # Once loaded into the AppDomain, we can reference it by name (not path)
+            # Register the loaded assembly with Python.NET using its simple name
             assembly_name = assembly.GetName().Name
             clr.AddReference(assembly_name)
             
-            # Import Kusto.Language classes
-            from Kusto.Language import KustoCode
-            from Kusto.Language.Symbols import GlobalState, DatabaseSymbol, TableSymbol
+            # Attempt direct imports first
+            try:
+                from Kusto.Language import KustoCode
+                from Kusto.Language.Symbols import GlobalState, DatabaseSymbol, TableSymbol
+                
+                KQLValidator._KustoCode = KustoCode
+                KQLValidator._GlobalState = GlobalState
+                KQLValidator._DatabaseSymbol = DatabaseSymbol
+                KQLValidator._TableSymbol = TableSymbol
+                KQLValidator._dll_loaded = True
+                return
+            except Exception as import_err:
+                # Fallback: probe assembly types and import using discovered namespace
+                try:
+                    available = [t.FullName for t in assembly.GetTypes()]
+                except Exception:
+                    available = []
+                
+                def _import_type_by_shortname(shortname: str):
+                    matches = [t for t in available if t.endswith(f".{shortname}")]
+                    if not matches:
+                        return None
+                    full_name = matches[0]
+                    parts = full_name.split('.')
+                    ns = '.'.join(parts[:-1])
+                    type_name = parts[-1]
+                    try:
+                        module = __import__(ns, fromlist=[type_name])
+                        return getattr(module, type_name)
+                    except Exception:
+                        return None
+                
+                # Try to resolve each required type
+                KustoCode = None
+                try:
+                    from Kusto.Language import KustoCode as _kc
+                    KustoCode = _kc
+                except Exception:
+                    KustoCode = _import_type_by_shortname("KustoCode") or _import_type_by_shortname("Kusto.Language.KustoCode")
+                
+                GlobalState = _import_type_by_shortname("GlobalState")
+                DatabaseSymbol = _import_type_by_shortname("DatabaseSymbol")
+                TableSymbol = _import_type_by_shortname("TableSymbol")
+                
+                # If KustoCode still not found, try to import top-level type name
+                if not KustoCode:
+                    # try any type that ends with "KustoCode"
+                    kc_matches = [t for t in available if t.endswith(".KustoCode")]
+                    if kc_matches:
+                        parts = kc_matches[0].split('.')
+                        ns = '.'.join(parts[:-1])
+                        try:
+                            module = __import__(ns, fromlist=[parts[-1]])
+                            KustoCode = getattr(module, parts[-1])
+                        except Exception:
+                            KustoCode = None
+                
+                if not (KustoCode and GlobalState and DatabaseSymbol and TableSymbol):
+                    sample = available[:10]
+                    raise Exception(
+                        f"Failed to import required Kusto types from assembly. "
+                        f"Import error: {import_err}. Sample assembly types: {sample}"
+                    )
+                
+                KQLValidator._KustoCode = KustoCode
+                KQLValidator._GlobalState = GlobalState
+                KQLValidator._DatabaseSymbol = DatabaseSymbol
+                KQLValidator._TableSymbol = TableSymbol
+                KQLValidator._dll_loaded = True
             
-            KQLValidator._KustoCode = KustoCode
-            KQLValidator._GlobalState = GlobalState
-            KQLValidator._DatabaseSymbol = DatabaseSymbol
-            KQLValidator._TableSymbol = TableSymbol
-            KQLValidator._dll_loaded = True
-            
-        except ImportError as e:
-            raise ImportError(
-                "Python.NET not installed. Install with: pip install pythonnet\n"
-                f"Original error: {e}"
-            )
+        except ImportError:
+            # re-raise ImportError (already handled above for pythonnet missing)
+            raise
         except Exception as e:
             raise Exception(f"Failed to load Kusto.Language DLL: {e}")
-    
+  
     def _configure_runtime(self):
         """Configure Python.NET runtime based on platform"""
         if platform.system() in ["Linux", "Darwin"]:
