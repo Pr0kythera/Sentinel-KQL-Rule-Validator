@@ -10,7 +10,7 @@ description: |
   The rule uses standard deviation-based z-score analysis to identify statistically significant
   deviations which may indicate data exfiltration, compromised accounts, or misuse.
 severity: Medium
-status: Available
+enabled: true
 requiredDataConnectors:
   - connectorId: Office365
     dataTypes:
@@ -62,7 +62,6 @@ query: |
           SD_PctOutOfHours = stdev(avg(IsOutOfHours * 100))
         by SenderFromAddress
   ) on SenderFromAddress;
-
   // Current Window Metrics (1 Hour)
   let current =
   EmailEvents
