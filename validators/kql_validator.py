@@ -54,21 +54,43 @@ class KQLValidator(BaseValidator):
             return  # Already loaded
         
         try:
-            # Import Python.NET
-            import clr
-            
-            # Configure runtime for platform
+            # Configure runtime for platform BEFORE importing clr
+            # This must happen first on macOS/Linux
             self._configure_runtime()
             
-            # Find and load the DLL
+            # Import Python.NET AFTER runtime is configured
+            import clr
+            
+            # Find the DLL path
             dll_path = self._find_dll_path()
-            if not dll_path or not dll_path.exists():
+            if not dll_path:
                 raise FileNotFoundError(
-                    f"Kusto.Language.dll not found. Expected location: {dll_path}\n"
-                    "Please build the DLL using: ./setup.py build-dll"
+                    "Kusto.Language.dll not found in expected locations.\n"
+                    "Please build the DLL using: python setup.py build-dll"
                 )
             
-            clr.AddReference(str(dll_path))
+            # Resolve to absolute path first (critical for cross-platform compatibility)
+            try:
+                dll_absolute = dll_path.resolve()
+            except (OSError, RuntimeError) as e:
+                raise FileNotFoundError(f"Cannot resolve DLL path {dll_path}: {e}")
+            
+            # Now check if the resolved path exists
+            if not dll_absolute.exists():
+                raise FileNotFoundError(
+                    f"Kusto.Language.dll not found at resolved path: {dll_absolute}\n"
+                    "Please build the DLL using: python setup.py build-dll"
+                )
+            
+            # FIXED: Use Assembly.LoadFrom instead of AddReference for full file paths
+            # AddReference treats the path as an assembly name and appends metadata
+            import System
+            assembly = System.Reflection.Assembly.LoadFrom(str(dll_absolute))
+            
+            # Now register the loaded assembly with Python.NET using its simple name
+            # Once loaded into the AppDomain, we can reference it by name (not path)
+            assembly_name = assembly.GetName().Name
+            clr.AddReference(assembly_name)
             
             # Import Kusto.Language classes
             from Kusto.Language import KustoCode
@@ -90,14 +112,18 @@ class KQLValidator(BaseValidator):
     
     def _configure_runtime(self):
         """Configure Python.NET runtime based on platform"""
-        try:
-            if platform.system() in ["Linux", "Darwin"]:
-                # Use CoreCLR on Linux/Mac
+        if platform.system() in ["Linux", "Darwin"]:
+            # Use CoreCLR on Linux/Mac (must be done before importing clr)
+            try:
                 from pythonnet import load
                 load("coreclr")
-        except Exception:
-            # If runtime configuration fails, continue with default
-            pass
+            except Exception as e:
+                # Re-raise with more helpful message
+                raise RuntimeError(
+                    f"Failed to configure .NET runtime for {platform.system()}. "
+                    f"Ensure .NET runtime is installed: brew install --cask dotnet (macOS) "
+                    f"or visit https://dotnet.microsoft.com/download. Error: {e}"
+                )
     
     def _find_dll_path(self) -> Optional[Path]:
         """Find Kusto.Language.dll in common locations"""

@@ -39,18 +39,22 @@ echo.
 
 REM Create virtual environment if it doesn't exist
 if not exist "venv" (
-    echo Step 2: Creating virtual environment...
+    echo Step 2: Creating Python virtual environment...
+    echo This isolates dependencies from your system Python.
     python -m venv venv
+    echo   [OK] Virtual environment created
     echo.
 )
 
 REM Activate virtual environment
 echo Step 3: Activating virtual environment...
 call venv\Scripts\activate.bat
+echo   [OK] Virtual environment activated
+echo   Python: %VIRTUAL_ENV%\Scripts\python.exe
 echo.
 
 REM Run full setup
-echo Step 4: Running full setup...
+echo Step 4: Running full setup (inside virtual environment)...
 echo This will install dependencies and build the Kusto.Language DLL
 echo This may take 2-5 minutes...
 echo.

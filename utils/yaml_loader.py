@@ -5,7 +5,7 @@ Safely loads and parses YAML files.
 
 import yaml
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Union
 
 
 class YAMLLoadError(Exception):
@@ -13,12 +13,12 @@ class YAMLLoadError(Exception):
     pass
 
 
-def load_yaml_file(file_path: Path) -> Dict:
+def load_yaml_file(file_path: Union[Path, str]) -> Dict:
     """
     Safely load a YAML file.
     
     Args:
-        file_path: Path to the YAML file
+        file_path: Path to the YAML file (Path object or string)
     
     Returns:
         Parsed YAML data as dictionary
@@ -26,6 +26,16 @@ def load_yaml_file(file_path: Path) -> Dict:
     Raises:
         YAMLLoadError: If the file cannot be loaded or parsed
     """
+    # Ensure we have a Path object for consistent handling
+    if not isinstance(file_path, Path):
+        file_path = Path(file_path)
+    
+    # Resolve to absolute path for better error messages and cross-platform compatibility
+    try:
+        file_path = file_path.resolve()
+    except (OSError, RuntimeError) as e:
+        raise YAMLLoadError(f"Cannot resolve path {file_path}: {str(e)}")
+    
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
@@ -55,6 +65,11 @@ def load_yaml_file(file_path: Path) -> Dict:
     
     except PermissionError:
         raise YAMLLoadError(f"Permission denied reading file: {file_path}")
+    
+    except UnicodeDecodeError as e:
+        raise YAMLLoadError(
+            f"File encoding error: {file_path}. Expected UTF-8 encoding. {str(e)}"
+        )
     
     except Exception as e:
         raise YAMLLoadError(f"Error loading YAML file: {str(e)}")

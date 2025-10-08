@@ -42,7 +42,37 @@ git clone <your-repo-url>
 cd sentinel-detection-linter
 ```
 
-### Step 2: Run Full Setup
+### Step 2: Create and Activate Virtual Environment (Recommended)
+
+Using a virtual environment isolates the linter's dependencies from your system Python and prevents conflicts.
+
+**Linux/Mac:**
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Your prompt should now show (venv) prefix
+```
+
+**Windows:**
+```batch
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+venv\Scripts\activate.bat
+
+# Your prompt should now show (venv) prefix
+```
+
+**Note:** You'll need to activate the virtual environment each time you open a new terminal session before running the linter.
+
+**Having trouble with virtual environments?** See the comprehensive [Virtual Environment Guide](VIRTUAL_ENVIRONMENT_GUIDE.md) for detailed instructions and troubleshooting.
+
+### Step 3: Run Full Setup
 
 The setup script will:
 1. Check prerequisites
@@ -56,19 +86,35 @@ python setup.py full-setup
 
 This process takes 2-5 minutes depending on your internet connection and machine speed.
 
-### Alternative: Manual Setup
+### Alternative: Quick Start Script
 
-If you prefer to run steps individually:
+For a fully automated setup including venv creation:
+
+**Linux/Mac:**
+```bash
+chmod +x quickstart.sh
+./quickstart.sh
+```
+
+**Windows:**
+```batch
+quickstart.bat
+```
+
+### Step 4: Verify Installation
 
 ```bash
-# Install Python dependencies
-python setup.py install-deps
+python linter.py examples/valid_detection.yaml
+```
 
-# Build the Kusto.Language DLL
-python setup.py build-dll
+Expected output: `[PASS] valid_detection.yaml`
 
-# Verify installation
-python setup.py verify
+### Deactivating Virtual Environment
+
+When you're done using the linter:
+
+```bash
+deactivate
 ```
 
 ## Project Structure
@@ -525,6 +571,17 @@ Contributions are welcome! To add new validators:
 For issues, questions, or suggestions:
 - Open an issue on GitHub
 - Contact: [Your Contact Information]
+
+## Documentation
+
+- **README.md** (this file) - Overview and user guide
+- **IMPLEMENTATION_GUIDE.md** - Detailed step-by-step implementation instructions
+- **INSTALLATION_SUMMARY.md** - Quick reference for installation
+- **VIRTUAL_ENVIRONMENT_GUIDE.md** - Complete guide to using Python virtual environments
+- **CROSS_PLATFORM_NOTES.md** - Explains how DLLs work across Windows, macOS, and Linux
+- **MACOS_SETUP_GUIDE.md** - macOS-specific setup and troubleshooting
+- **CONTRIBUTING.md** - Guide for adding custom validators
+- **DEPLOYMENT_GUIDE.md** - Instructions for deploying to your organization
 
 ## Acknowledgments
 

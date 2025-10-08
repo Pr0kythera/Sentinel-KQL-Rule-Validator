@@ -1,0 +1,128 @@
+# ============================================================
+# Microsoft Sentinel Analytic Rule: Email Behavior Anomaly
+# ============================================================
+id: 7c88e3f4-9a2e-4b09-b32e-7bfa3cc3d7c1
+name: Suspicious Deviation in Email Sending Behavior (Baseline Anomaly)
+description: |
+  Detects anomalous email activity per user by comparing the last hour of email behavior against
+  a 14-day statistical baseline. This includes frequency of emails sent, average email size,
+  number of attachments, and percentage of out-of-hours emails (outside 9AM–5PM).
+  The rule uses standard deviation-based z-score analysis to identify statistically significant
+  deviations which may indicate data exfiltration, compromised accounts, or misuse.
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: Office365
+    dataTypes:
+      - EmailEvents
+queryFrequency: 1h
+queryPeriod: 14d
+triggerOperator: GreaterThan
+triggerThreshold: 0
+suppressionDuration: 1h
+suppressionEnabled: false
+tactics:
+  - Exfiltration
+  - CommandAndControl
+techniques:
+  - T1020  # Automated Exfiltration
+  - T1071  # Application Layer Protocol
+kind: Scheduled
+version: 1.0.0
+query: |
+  // ==============================================
+  // Email Anomaly Detection (Behavioral Baseline)
+  // ==============================================
+  let BaselineWindow = 14d;
+  let EvaluationWindow = 1h;
+  let StartHour = 9;
+  let EndHour = 17;
+  // Baseline Metrics (14 Days)
+  let baseline =
+  EmailEvents
+  | where Timestamp between (ago(BaselineWindow) .. ago(EvaluationWindow))
+  | where isnotempty(SenderFromAddress)
+  | extend HourOfDay = datetime_part("hour", Timestamp)
+  | extend IsOutOfHours = iif(HourOfDay < StartHour or HourOfDay >= EndHour, 1, 0)
+  | summarize
+      Baseline_EmailsSent = count(),
+      Baseline_AvgSizeKB = avg(EmailSize/1024.0),
+      Baseline_AvgAttachments = avg(AttachmentCount),
+      Baseline_PctOutOfHours = avg(IsOutOfHours * 100)
+    by SenderFromAddress
+  | join kind=inner (
+      EmailEvents
+      | where Timestamp between (ago(BaselineWindow) .. ago(EvaluationWindow))
+      | extend HourOfDay = datetime_part("hour", Timestamp)
+      | extend IsOutOfHours = iif(HourOfDay < StartHour or HourOfDay >= EndHour, 1, 0)
+      | summarize
+          SD_EmailsSent = stdev(count()),
+          SD_AvgSizeKB = stdev(avg(EmailSize/1024.0)),
+          SD_AvgAttachments = stdev(avg(AttachmentCount)),
+          SD_PctOutOfHours = stdev(avg(IsOutOfHours * 100))
+        by SenderFromAddress
+  ) on SenderFromAddress;
+
+  // Current Window Metrics (1 Hour)
+  let current =
+  EmailEvents
+  | where Timestamp >= ago(EvaluationWindow)
+  | extend HourOfDay = datetime_part("hour", Timestamp)
+  | extend IsOutOfHours = iif(HourOfDay < StartHour or HourOfDay >= EndHour, 1, 0)
+  | summarize
+      Current_EmailsSent = count(),
+      Current_AvgSizeKB = avg(EmailSize/1024.0),
+      Current_AvgAttachments = avg(AttachmentCount),
+      Current_PctOutOfHours = avg(IsOutOfHours * 100)
+    by SenderFromAddress;
+  // Z-score Calculation and Alert Trigger
+  baseline
+  | join kind=inner current on SenderFromAddress
+  | extend
+      Z_EmailsSent = (Current_EmailsSent - Baseline_EmailsSent) / iif(SD_EmailsSent == 0, 1, SD_EmailsSent),
+      Z_AvgSizeKB = (Current_AvgSizeKB - Baseline_AvgSizeKB) / iif(SD_AvgSizeKB == 0, 1, SD_AvgSizeKB),
+      Z_AvgAttachments = (Current_AvgAttachments - Baseline_AvgAttachments) / iif(SD_AvgAttachments == 0, 1, SD_AvgAttachments),
+      Z_PctOutOfHours = (Current_PctOutOfHours - Baseline_PctOutOfHours) / iif(SD_PctOutOfHours == 0, 1, SD_PctOutOfHours)
+  | extend
+      CompositeZScore = abs(Z_EmailsSent) + abs(Z_AvgSizeKB) + abs(Z_AvgAttachments) + abs(Z_PctOutOfHours)
+  | where CompositeZScore >= 3
+  | project
+      Timestamp = now(),
+      SenderFromAddress,
+      Current_EmailsSent,
+      Baseline_EmailsSent,
+      Z_EmailsSent,
+      Current_AvgSizeKB,
+      Z_AvgSizeKB,
+      Current_AvgAttachments,
+      Z_AvgAttachments,
+      Current_PctOutOfHours,
+      Z_PctOutOfHours,
+      CompositeZScore
+  | order by CompositeZScore desc
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: SenderFromAddress
+alertDetailsOverride:
+  alertDisplayNameFormat: "Anomalous Email Behavior Detected for {{SenderFromAddress}}"
+  alertDescriptionFormat: |
+    Detected abnormal email sending behavior for user {{SenderFromAddress}}.
+    Composite Z-Score exceeded threshold (≥3), indicating significant deviation from baseline:
+      - Emails Sent: {{Current_EmailsSent}} (Baseline: {{Baseline_EmailsSent}})
+      - Avg Size (KB): {{Current_AvgSizeKB}}
+      - Attachments: {{Current_AvgAttachments}}
+      - Out-of-hours %: {{Current_PctOutOfHours}}
+    This may indicate potential data exfiltration or account compromise.
+customDetails:
+  CompositeZScore: CompositeZScore
+  EmailsSentZScore: Z_EmailsSent
+  AvgSizeZScore: Z_AvgSizeKB
+  AttachmentsZScore: Z_AvgAttachments
+  OutOfHoursZScore: Z_PctOutOfHours
+  BaselineEmails: Baseline_EmailsSent
+  CurrentEmails: Current_EmailsSent
+relevantTechniques:
+  - T1020
+  - T1071

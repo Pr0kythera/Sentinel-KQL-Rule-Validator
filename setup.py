@@ -98,19 +98,39 @@ class SetupManager:
                 print("ERROR: Could not find Kusto.Language.dll in build output")
                 return False
             
-            # Use the first found DLL (should be only one)
-            source_dll = dll_files[0]
+            # Use the first found DLL and resolve to absolute path
+            source_dll = dll_files[0].resolve()
             target_dll = self.libs_dir / "Kusto.Language.dll"
             
             print(f"Copying DLL from: {source_dll}")
             print(f"            to: {target_dll}")
-            shutil.copy2(source_dll, target_dll)
+            shutil.copy2(str(source_dll), str(target_dll))
             print("  [OK] DLL copied successfully\n")
             
-            # Clean up temp directory
+            # Clean up temp directory with retry logic for Windows
             print("Cleaning up temporary files...")
-            shutil.rmtree(self.temp_dir)
-            print("  [OK] Cleanup complete\n")
+            cleanup_success = False
+            for attempt in range(3):
+                try:
+                    shutil.rmtree(self.temp_dir)
+                    print("  [OK] Cleanup complete\n")
+                    cleanup_success = True
+                    break
+                except PermissionError as e:
+                    # Common on Windows with file locks
+                    if attempt < 2:
+                        print(f"  [INFO] Cleanup attempt {attempt + 1} failed, retrying...")
+                        import time
+                        time.sleep(1)
+                    else:
+                        print(f"  [WARNING] Cleanup failed: {e}")
+                        print(f"  You can manually delete: {self.temp_dir}\n")
+                except Exception as e:
+                    print(f"  [WARNING] Cleanup error: {e}\n")
+                    break
+            
+            if not cleanup_success:
+                print("  [INFO] Continuing despite cleanup issues...\n")
             
             print("="*60)
             print("SUCCESS! Kusto.Language.dll is ready.")
@@ -157,8 +177,26 @@ class SetupManager:
             return False
         print(f"  [OK] DLL found: {dll_path}")
         
-        # Try to import pythonnet
+        # Try to import pythonnet and configure runtime
         try:
+            import platform
+            
+            # Configure runtime for macOS/Linux to use CoreCLR BEFORE importing clr
+            if platform.system() in ["Darwin", "Linux"]:
+                from pythonnet import load
+                print(f"  [INFO] Configuring Python.NET to use CoreCLR on {platform.system()}")
+                try:
+                    load("coreclr")
+                    print("  [OK] CoreCLR runtime loaded")
+                except Exception as e:
+                    print(f"  [ERROR] Could not load CoreCLR: {e}")
+                    print("  [INFO] You may need to install .NET runtime:")
+                    print("  - macOS: brew install --cask dotnet")
+                    print("  - Linux: sudo apt-get install dotnet-runtime-7.0")
+                    print("  - Or download from: https://dotnet.microsoft.com/download")
+                    return False
+            
+            # Import clr AFTER runtime is configured
             import clr
             print("  [OK] Python.NET (pythonnet) is installed")
         except ImportError:
@@ -167,11 +205,35 @@ class SetupManager:
         
         # Try to load the DLL
         try:
-            clr.AddReference(str(dll_path))
+            # Use absolute path and resolve any symlinks
+            dll_absolute = dll_path.resolve()
+            print(f"  [INFO] Loading DLL from: {dll_absolute}")
+            
+            # FIXED: Use Assembly.LoadFrom instead of AddReference for full file paths
+            # AddReference treats the path as an assembly name and appends metadata
+            import System
+            assembly = System.Reflection.Assembly.LoadFrom(str(dll_absolute))
+            print(f"  [OK] Assembly loaded: {assembly.FullName}")
+            
+            # Now register the loaded assembly with Python.NET using its simple name
+            # Once loaded into the AppDomain, we can reference it by name (not path)
+            assembly_name = assembly.GetName().Name
+            print(f"  [INFO] Registering assembly as: {assembly_name}")
+            clr.AddReference(assembly_name)
+            
+            # Now we can import the types
             from Kusto.Language import KustoCode
             print("  [OK] Kusto.Language DLL loads successfully")
+            
+            # Verify we can also import from sub-namespaces
+            from Kusto.Language.Symbols import GlobalState
+            print("  [OK] Kusto.Language.Symbols namespace accessible")
         except Exception as e:
             print(f"  [ERROR] Failed to load DLL: {e}")
+            print("\n  Troubleshooting tips:")
+            print("  - On macOS/Linux: Ensure .NET runtime is installed")
+            print("  - Run: dotnet --list-runtimes")
+            print("  - If no runtimes listed, install: https://dotnet.microsoft.com/download")
             return False
         
         # Try a simple parse

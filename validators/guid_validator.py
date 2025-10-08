@@ -68,9 +68,13 @@ class GuidValidator(BaseValidator):
         """Find other files with the same GUID"""
         duplicates = []
         
+        # Resolve current file path for accurate comparison
+        # This handles symlinks and different path representations
+        current_file_resolved = current_file.resolve()
+        
         for file_path in all_files:
-            # Skip the current file
-            if file_path == current_file:
+            # Skip the current file (compare resolved paths)
+            if file_path.resolve() == current_file_resolved:
                 continue
             
             try:

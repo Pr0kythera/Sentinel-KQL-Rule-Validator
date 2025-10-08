@@ -39,18 +39,22 @@ echo ""
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
-    echo "Step 2: Creating virtual environment..."
+    echo "Step 2: Creating Python virtual environment..."
+    echo "This isolates dependencies from your system Python."
     python3 -m venv venv
+    echo "  [OK] Virtual environment created"
     echo ""
 fi
 
 # Activate virtual environment
 echo "Step 3: Activating virtual environment..."
 source venv/bin/activate
+echo "  [OK] Virtual environment activated"
+echo "  Python: $(which python)"
 echo ""
 
 # Run full setup
-echo "Step 4: Running full setup..."
+echo "Step 4: Running full setup (inside virtual environment)..."
 echo "This will install dependencies and build the Kusto.Language DLL"
 echo "This may take 2-5 minutes..."
 echo ""
