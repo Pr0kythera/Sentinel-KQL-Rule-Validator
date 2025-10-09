@@ -1,12 +1,14 @@
 # Sentinel Detection Linter
 
-A comprehensive Python-based linter for validating Microsoft Sentinel Analytics Rules in YAML format before deployment. This tool performs extensive validation checks including GUID validation, schema validation, entity mapping verification, query timing validation, and full KQL syntax/semantic validation using Microsoft's official Kusto.Language library.
+A comprehensive Python-based linter for validating Microsoft Sentinel Analytics Rules in YAML format before deployment. This tool performs extensive validation checks including GUID validation, schema validation, Microsoft Sentinel constraints, ASIM field naming, entity mapping verification, query timing validation, and full KQL syntax/semantic validation using Microsoft's official Kusto.Language library.
 
 ## Features
 
 - **GUID Validation**: Validates GUID format and ensures uniqueness across all detection files
 - **YAML Validation**: Checks YAML syntax, structure, and proper indentation
 - **Data Type Validation**: Ensures all fields have correct data types (bool vs string, etc.)
+- **Sentinel Constraints Validation**: Validates all Microsoft Sentinel field requirements (kind, severity, tactics, techniques, limits, etc.)
+- **ASIM Field Naming**: Warns when entity mappings don't follow ASIM normalized field naming conventions
 - **Entity Mapping Validation**: Verifies entity mappings use strong identifiers per Microsoft documentation
 - **Entity Column Validation**: Confirms entity mapping columns exist in KQL query output
 - **Query Timing Validation**: Validates queryFrequency and queryPeriod constraints
@@ -122,33 +124,38 @@ deactivate
 ```
 sentinel-detection-linter/
 |
-|-- linter.py                     # Main entry point
-|-- setup.py                      # Setup and DLL build script
-|-- requirements.txt              # Python dependencies
-|-- README.md                     # This file
+|-- linter.py                              # Main entry point
+|-- setup.py                               # Setup and DLL build script
+|-- requirements.txt                       # Python dependencies
+|-- README.md                              # This file
 |
 |-- libs/
-|   |-- Kusto.Language.dll        # Microsoft KQL parser (built by setup)
+|   |-- Kusto.Language.dll                 # Microsoft KQL parser (built by setup)
 |
 |-- validators/
-|   |-- base_validator.py         # Abstract base class
-|   |-- guid_validator.py         # GUID validation
-|   |-- schema_validator.py       # YAML schema validation
-|   |-- entity_validator.py       # Entity mapping validation
-|   |-- timing_validator.py       # Query timing validation
-|   |-- kql_validator.py          # KQL syntax/semantic validation
+|   |-- base_validator.py                  # Abstract base class
+|   |-- guid_validator.py                  # GUID validation
+|   |-- schema_validator.py                # YAML schema validation
+|   |-- sentinel_constraints_validator.py  # Microsoft Sentinel constraints
+|   |-- entity_validator.py                # Entity mapping validation
+|   |-- asim_field_validator.py            # ASIM field naming validation
+|   |-- timing_validator.py                # Query timing validation
+|   |-- kql_validator.py                   # KQL syntax/semantic validation
 |
 |-- utils/
-|   |-- yaml_loader.py            # Safe YAML loading
-|   |-- file_scanner.py           # Directory scanning
+|   |-- yaml_loader.py                     # Safe YAML loading
+|   |-- file_scanner.py                    # Directory scanning
 |
 |-- config/
-|   |-- schema_definition.py      # Expected schema structure
-|   |-- entity_identifiers.py     # Strong identifier mappings
+|   |-- schema_definition.py               # Expected schema structure
+|   |-- entity_identifiers.py              # Strong identifier mappings
+|   |-- asim_field_names.py                # ASIM normalized field names
 |
 |-- examples/
-    |-- valid_rule.yaml            # Example valid detection
-    |-- invalid_rules/             # Example invalid detections
+    |-- valid_detection.yaml                # Example valid detection
+    |-- detection_with_asim_warnings.yaml   # ASIM field naming examples
+    |-- detection_with_constraint_errors.yaml  # Constraint violation examples
+    |-- detection_with_valid_constraints.yaml  # Valid constraints example
 ```
 
 ## Usage
@@ -195,6 +202,8 @@ python linter.py detection.yaml --schema custom_schema.json
 
 ## Validation Checks
 
+The linter performs validations in the following order:
+
 ### 1. GUID Format Validation
 
 Validates that the `id` field contains a valid GUID in the format:
@@ -235,7 +244,65 @@ Ensures fields have correct data types. Common issue: boolean values as strings.
         Use enabled: true instead of enabled: 'true'
 ```
 
-### 5. Entity Strong Identifier Validation
+### 5. Microsoft Sentinel Constraints Validation
+
+Validates all Microsoft Sentinel Analytics Rule requirements per official documentation.
+
+Reference: https://learn.microsoft.com/en-us/azure/sentinel/sentinel-analytic-rules-creation
+
+**Validated Constraints:**
+
+#### Field Values (Enums)
+- **kind**: Must be "Scheduled" or "NRT"
+- **severity**: Must be "Informational", "Low", "Medium", or "High"
+- **triggerOperator**: Must be "GreaterThan", "LessThan", or "Equal"
+- **eventGroupingSettings.aggregationKind**: Must be "SingleAlert" or "AlertPerResult"
+
+#### Numeric Ranges
+- **triggerThreshold**: Must be integer between 0 and 10,000
+
+#### Length Limits
+- **name**: Maximum 50 characters, cannot end with period
+- **description**: Maximum 255 characters
+- **query**: Maximum 10,000 characters
+- **entityMappings**: Maximum 10 mappings per rule
+- **fieldMappings**: Maximum 3 per entity
+- **customDetails**: Maximum 20 key/value pairs
+- **alertDetailsOverride**: Maximum 3 parameters, specific character limits
+
+#### Format Requirements
+- **version**: Must follow semantic versioning (e.g., "1.0.0")
+
+#### MITRE ATT&CK Validation
+- **tactics**: Must be valid MITRE ATT&CK v13 tactics (no spaces)
+  - Valid: InitialAccess, Execution, Persistence, PrivilegeEscalation, DefenseEvasion, CredentialAccess, Discovery, LateralMovement, Collection, CommandAndControl, Exfiltration, Impact, Reconnaissance, ResourceDevelopment
+- **relevantTechniques**: Must follow format T1000-T1999 or T1000-T1999.001-999
+  - Valid: "T1078", "T1078.001", "T1110"
+  - Invalid: "T999", "T2000", "1078", "Initial Access"
+
+**Example Errors:**
+```
+[ERROR] Sentinel Constraints Validator: Field 'kind' has invalid value 'Custom'. 
+        Must be one of: 'Scheduled', 'NRT'
+
+[ERROR] Sentinel Constraints Validator: Field 'severity' has invalid value 'Critical'. 
+        Must be one of: 'Informational', 'Low', 'Medium', 'High'
+
+[ERROR] Sentinel Constraints Validator: Tactic 'Initial Access' contains spaces. 
+        MITRE ATT&CK tactics must not contain spaces. Use 'InitialAccess' instead
+
+[ERROR] Sentinel Constraints Validator: Technique 'T999' has invalid format. 
+        Must be 'T####' (e.g., T1078) or 'T####.###' (e.g., T1078.001) 
+        where #### is in range 1000-1999
+
+[ERROR] Sentinel Constraints Validator: Field 'name' exceeds maximum length of 50 characters. 
+        Current length: 75 characters
+
+[ERROR] Sentinel Constraints Validator: Field 'entityMappings' exceeds maximum of 10 mappings. 
+        Current count: 11 mappings
+```
+
+### 6. Entity Strong Identifier Validation
 
 Validates entity mappings use strong identifiers per Microsoft documentation.
 
@@ -247,7 +314,28 @@ Reference: https://learn.microsoft.com/en-us/azure/sentinel/entities-reference
        a strong identifier. Recommended strong identifiers: FullName, Sid, AadUserId, ObjectGuid
 ```
 
-### 6. Entity Column Validation
+### 7. ASIM Field Naming Validation
+
+Warns when entity mapping `columnName` values don't follow ASIM (Advanced Security Information Model) normalized field naming conventions.
+
+Reference: https://learn.microsoft.com/en-us/azure/sentinel/normalization-common-fields
+
+**ASIM Field Patterns:**
+- User/Account: ActorUsername, TargetUsername, ActorUserId, SrcUsername
+- Host/Device: SrcHostname, DstHostname, DvcIpAddr, SrcIpAddr
+- Process: ActingProcessName, TargetProcessId, ActingProcessCommandLine
+- File: TargetFileName, SrcFilePath, TargetFileSHA256
+
+**Example Warning:**
+```
+[WARN] ASIM Field Validator: Entity mapping for 'Account' uses columnName 'Account' 
+       which does not follow ASIM normalized field naming conventions. 
+       For 'Account' entities, ASIM recommends field names like: ActorUsername, 
+       TargetUsername, ActorUserId, SrcUsername. Using ASIM-normalized field names 
+       improves query consistency and cross-source correlation.
+```
+
+### 8. Entity Column Validation
 
 Confirms that entity mapping columnNames exist in the KQL query output.
 
@@ -257,7 +345,7 @@ Confirms that entity mapping columnNames exist in the KQL query output.
         which is not present in query output. Available columns: Computer, Account, EventID
 ```
 
-### 7. Query Timing Validation
+### 9. Query Timing Validation
 
 Validates queryFrequency and queryPeriod constraints:
 - queryPeriod cannot exceed 14 days
@@ -269,7 +357,7 @@ Validates queryFrequency and queryPeriod constraints:
         queryPeriod '1h' (60 minutes)
 ```
 
-### 8. KQL Query Validation
+### 10. KQL Query Validation
 
 Full syntax and semantic validation using Microsoft's official parser.
 
@@ -298,11 +386,12 @@ SENTINEL DETECTION LINTER - VALIDATION RESULTS
 
 [FAIL] invalid_detection.yaml
   [ERROR] GUID Validator: Field 'id' contains invalid GUID format: 'invalid-guid'
+  [ERROR] Sentinel Constraints Validator: Field 'kind' has invalid value 'Custom'
   [ERROR] KQL Validator: KQL syntax error: Expected operator
 
 ======================================================================
 Summary: 1/2 files passed
-         2 errors, 0 warnings
+         3 errors, 0 warnings
 ======================================================================
 ```
 
@@ -310,13 +399,13 @@ Summary: 1/2 files passed
 
 ```json
 {
-  "timestamp": "2025-10-07T12:00:00Z",
+  "timestamp": "2025-10-09T12:00:00Z",
   "summary": {
     "total_files": 2,
     "passed": 1,
     "failed": 1,
-    "total_errors": 2,
-    "total_warnings": 0
+    "total_errors": 3,
+    "total_warnings": 1
   },
   "results": [
     {
@@ -334,9 +423,22 @@ Summary: 1/2 files passed
           "severity": "error",
           "message": "Field 'id' contains invalid GUID format: 'invalid-guid'",
           "field": "id"
+        },
+        {
+          "validator": "Sentinel Constraints Validator",
+          "severity": "error",
+          "message": "Field 'kind' has invalid value 'Custom'. Must be one of: 'Scheduled', 'NRT'",
+          "field": "kind"
         }
       ],
-      "warnings": []
+      "warnings": [
+        {
+          "validator": "ASIM Field Validator",
+          "severity": "warning",
+          "message": "Entity mapping for 'Account' uses columnName 'Account'...",
+          "field": "entityMappings[0].fieldMappings[0].columnName"
+        }
+      ]
     }
   ]
 }
@@ -531,6 +633,22 @@ This disables KQL validation and only runs structural checks.
 python linter.py detection.yaml --schema your_schema.json
 ```
 
+### Issue: ASIM warnings for valid custom fields
+
+**Solution:** ASIM field naming is advisory (warnings, not errors). You can acknowledge these warnings for custom environments. To see only errors:
+```bash
+python linter.py detection.yaml  # (without --verbose, warnings are hidden)
+```
+
+### Issue: Constraint errors for valid rules
+
+**Solution:** Ensure your rules follow Microsoft Sentinel requirements:
+- Use "Scheduled" or "NRT" for `kind`
+- Use valid severity levels
+- Follow MITRE ATT&CK v13 naming (no spaces in tactics)
+- Keep names under 50 characters
+- See [Sentinel Constraints Guide](SENTINEL_CONSTRAINTS_VALIDATION_GUIDE.md) for details
+
 ## Performance
 
 Typical performance on a modern laptop:
@@ -564,32 +682,59 @@ Contributions are welcome! To add new validators:
 
 ## License
 
-[Your License Here]
+MIT License - See LICENSE file for details
 
 ## Support
 
 For issues, questions, or suggestions:
 - Open an issue on GitHub
-- Contact: [Your Contact Information]
+- Review the documentation guides below
 
 ## Documentation
 
+### User Guides
 - **README.md** (this file) - Overview and user guide
-- **IMPLEMENTATION_GUIDE.md** - Detailed step-by-step implementation instructions
 - **INSTALLATION_SUMMARY.md** - Quick reference for installation
 - **VIRTUAL_ENVIRONMENT_GUIDE.md** - Complete guide to using Python virtual environments
-- **CROSS_PLATFORM_NOTES.md** - Explains how DLLs work across Windows, macOS, and Linux
+
+### Validation Guides
+- **SENTINEL_CONSTRAINTS_VALIDATION_GUIDE.md** - Microsoft Sentinel constraints validation
+- **ASIM_FIELD_VALIDATION_GUIDE.md** - ASIM field naming conventions
+
+### Technical Documentation
+- **IMPLEMENTATION_GUIDE.md** - Detailed step-by-step implementation instructions
+- **CROSS_PLATFORM_NOTES.md** - How DLLs work across Windows, macOS, and Linux
 - **MACOS_SETUP_GUIDE.md** - macOS-specific setup and troubleshooting
 - **CONTRIBUTING.md** - Guide for adding custom validators
 - **DEPLOYMENT_GUIDE.md** - Instructions for deploying to your organization
 
+### Implementation Summaries
+- **ASIM_VALIDATOR_IMPLEMENTATION_SUMMARY.md** - ASIM validator technical details
+- **SENTINEL_CONSTRAINTS_IMPLEMENTATION_SUMMARY.md** - Constraints validator technical details
+
 ## Acknowledgments
 
-- Microsoft for the Kusto.Language library
+- Microsoft for the Kusto.Language library and Sentinel documentation
 - Python.NET team for the CLR bridge
 - The Sentinel community for feedback and testing
+- MITRE for the ATT&CK framework
 
 ## Version History
+
+### v1.1.0 (2025-10-09)
+- **Added**: Sentinel Constraints Validator - Validates all Microsoft Sentinel requirements
+  - Field value constraints (kind, severity, triggerOperator)
+  - Numeric range validation (triggerThreshold)
+  - Length limits (name, description, query, entity mappings, custom details)
+  - Format validation (version semantic versioning)
+  - MITRE ATT&CK v13 tactics and techniques validation
+- **Added**: ASIM Field Validator - Validates entity mappings follow ASIM naming conventions
+  - 500+ ASIM normalized field names
+  - Entity-specific recommendations
+  - Cross-source correlation improvements
+- **Updated**: Schema validator to include new required fields (tactics, relevantTechniques, version)
+- **Updated**: Configuration with ASIM field definitions
+- **Added**: Comprehensive validation guides and examples
 
 ### v1.0.0 (2025-10-07)
 - Initial release
