@@ -1,0 +1,152 @@
+id: b1c2d3e4-f5a6-7890-bcde-f12345678901
+name: "This is a very long name that exceeds the maximum allowed length of fifty characters"
+displayName: "Example Detection with Constraint Errors"
+kind: "InvalidKind"  # ERROR: Must be "Scheduled" or "NRT"
+description: |
+  This detection demonstrates Sentinel constraint validation errors. 
+  This description is intentionally very long to exceed the maximum allowed length 
+  of 255 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit, 
+  sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad 
+  minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea 
+  commodo consequat.
+severity: "Critical"  # ERROR: Must be "Informational", "Low", "Medium", or "High"
+enabled: true
+queryFrequency: "5m"
+queryPeriod: "5m"
+triggerOperator: "gt"  # ERROR: Must be "GreaterThan", "LessThan", or "Equal"
+triggerThreshold: 15000  # ERROR: Exceeds maximum of 10,000
+query: |
+  SecurityEvent
+  | where EventID == 4625
+  | take 10
+
+# ERROR: Invalid MITRE ATT&CK tactics
+tactics:
+  - "Initial Access"  # ERROR: Contains space, should be "InitialAccess"
+  - "InvalidTactic"   # ERROR: Not a valid MITRE ATT&CK v13 tactic
+  - "DefenseEvasion"  # CORRECT
+
+# ERROR: Invalid technique formats
+relevantTechniques:
+  - "T1078"        # CORRECT
+  - "T1078.001"    # CORRECT
+  - "T999"         # ERROR: Outside valid range (must be T1000-T1999)
+  - "T2000"        # ERROR: Outside valid range (must be T1000-T1999)
+  - "T1078.1234"   # ERROR: Sub-technique too many digits (max 3)
+  - "1078"         # ERROR: Missing 'T' prefix
+
+version: "1.0"  # ERROR: Invalid format, must be "a.b.c" like "1.0.0"
+
+# ERROR: Too many entity mappings (max 10)
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: "Account"
+  - entityType: Host
+    fieldMappings:
+      - identifier: FullName
+        columnName: "Computer"
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: "IpAddress"
+  - entityType: Process
+    fieldMappings:
+      - identifier: ProcessId
+        columnName: "ProcessId"
+  - entityType: File
+    fieldMappings:
+      - identifier: Name
+        columnName: "FileName"
+  - entityType: DNS
+    fieldMappings:
+      - identifier: DomainName
+        columnName: "DomainName"
+  - entityType: URL
+    fieldMappings:
+      - identifier: Url
+        columnName: "Url"
+  - entityType: Malware
+    fieldMappings:
+      - identifier: Name
+        columnName: "MalwareName"
+  - entityType: RegistryKey
+    fieldMappings:
+      - identifier: Key
+        columnName: "RegistryKey"
+  - entityType: CloudApplication
+    fieldMappings:
+      - identifier: Name
+        columnName: "AppName"
+  - entityType: MailMessage  # ERROR: This is the 11th mapping (exceeds max of 10)
+    fieldMappings:
+      - identifier: NetworkMessageId
+        columnName: "MessageId"
+
+# ERROR: Too many field mappings per entity (max 3)
+  - entityType: SecurityGroup
+    fieldMappings:
+      - identifier: DistinguishedName
+        columnName: "GroupDN"
+      - identifier: SID
+        columnName: "GroupSID"
+      - identifier: ObjectGuid
+        columnName: "GroupGuid"
+      - identifier: Name  # ERROR: This is the 4th field mapping (exceeds max of 3)
+        columnName: "GroupName"
+
+# ERROR: Too many custom details (max 20)
+customDetails:
+  Computer1: Computer
+  IP1: IpAddress
+  Account1: Account
+  Event1: EventID
+  Computer2: Computer
+  IP2: IpAddress
+  Account2: Account
+  Event2: EventID
+  Computer3: Computer
+  IP3: IpAddress
+  Account3: Account
+  Event3: EventID
+  Computer4: Computer
+  IP4: IpAddress
+  Account4: Account
+  Event4: EventID
+  Computer5: Computer
+  IP5: IpAddress
+  Account5: Account
+  Event5: EventID
+  Computer6: Computer  # ERROR: This is the 21st custom detail (exceeds max of 20)
+
+# ERROR: Invalid event grouping settings
+eventGroupingSettings:
+  aggregationKind: "GroupByFields"  # ERROR: Must be "SingleAlert" or "AlertPerResult"
+
+# ERROR: Alert details override constraints
+alertDetailsOverride:
+  alertDisplayNameFormat: "Alert from {{Computer}} with {{Account}} and {{IpAddress}} and {{EventID}}"  # ERROR: 4 parameters (max 3)
+  alertDescriptionFormat: "{{ Computer }}"  # ERROR: Whitespace inside braces (should be {{Computer}})
+  alertSeverityColumnName: "Severity"
+
+# Expected validation errors:
+# 1. name: Exceeds 50 characters
+# 2. kind: Invalid value "InvalidKind"
+# 3. description: Exceeds 255 characters
+# 4. severity: Invalid value "Critical"
+# 5. triggerOperator: Invalid value "gt"
+# 6. triggerThreshold: Exceeds 10,000
+# 7. tactics[0]: Contains space
+# 8. tactics[1]: Invalid tactic
+# 9. relevantTechniques[2]: Outside valid range
+# 10. relevantTechniques[3]: Outside valid range
+# 11. relevantTechniques[4]: Too many sub-technique digits
+# 12. relevantTechniques[5]: Missing 'T' prefix
+# 13. version: Invalid format
+# 14. entityMappings: Exceeds 10 mappings
+# 15. entityMappings[11].fieldMappings: Exceeds 3 field mappings
+# 16. customDetails: Exceeds 20 key/value pairs
+# 17. eventGroupingSettings.aggregationKind: Invalid value
+# 18. alertDetailsOverride.alertDisplayNameFormat: Too many parameters
+# 19. alertDetailsOverride.alertDescriptionFormat: Whitespace in parameter

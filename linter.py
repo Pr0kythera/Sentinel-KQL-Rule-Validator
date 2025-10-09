@@ -16,6 +16,8 @@ from validators.schema_validator import SchemaValidator
 from validators.entity_validator import EntityValidator
 from validators.timing_validator import TimingValidator
 from validators.kql_validator import KQLValidator
+from validators.asim_field_validator import ASIMFieldValidator
+from validators.sentinel_constraints_validator import SentinelConstraintsValidator
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
 from config.schema_definition import SENTINEL_SCHEMA
@@ -72,10 +74,12 @@ class SentinelLinter:
         """
         self.validators = []
         
-        # Always-enabled validators
+        # Always-enabled validators (order matters for logical progression)
         self.validators.append(GuidValidator())
         self.validators.append(SchemaValidator())
+        self.validators.append(SentinelConstraintsValidator())  # NEW: Validates Microsoft requirements
         self.validators.append(EntityValidator())
+        self.validators.append(ASIMFieldValidator())
         self.validators.append(TimingValidator())
         
         # Optional KQL validator (may not be available if .NET not installed)

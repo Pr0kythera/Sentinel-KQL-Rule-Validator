@@ -1,0 +1,97 @@
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+name: "Example Detection with ASIM Field Issues"
+displayName: "Example: ASIM Field Naming Validation"
+kind: "Scheduled"
+description: |
+  This detection demonstrates ASIM field name validation.
+  Some entity mappings use non-ASIM field names which will generate warnings.
+severity: "Medium"
+enabled: true
+queryFrequency: "5m"
+queryPeriod: "5m"
+triggerOperator: "GreaterThan"
+triggerThreshold: 0
+query: |
+  SecurityEvent
+  | where EventID == 4625
+  | project 
+      TimeGenerated,
+      Computer,
+      Account,
+      IpAddress,
+      WorkstationName,
+      LogonType,
+      Status,
+      SubStatus,
+      TargetUserName,
+      TargetDomainName,
+      ActorUsername = Account,
+      SrcIpAddr = IpAddress,
+      DvcHostname = Computer
+  | take 10
+
+# ENTITY MAPPINGS DEMONSTRATION
+# This section shows both correct and incorrect ASIM field usage
+
+entityMappings:
+  # EXAMPLE 1: CORRECT - Uses proper ASIM field names
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: "ActorUsername"  # CORRECT: ASIM normalized name
+      - identifier: Sid
+        columnName: "TargetUserName"  # WARNING: Should be "TargetUsername" (no camelCase within name)
+
+  # EXAMPLE 2: INCORRECT - Uses non-ASIM field names
+  - entityType: Host
+    fieldMappings:
+      - identifier: FullName
+        columnName: "Computer"  # WARNING: Non-ASIM field, should be "DvcHostname" or "SrcHostname"
+      - identifier: HostName
+        columnName: "DvcHostname"  # CORRECT: ASIM normalized name
+
+  # EXAMPLE 3: INCORRECT - Uses custom field names instead of ASIM
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: "IpAddress"  # WARNING: Should be "SrcIpAddr" or "DstIpAddr"
+
+  # EXAMPLE 4: CORRECT - Proper ASIM field usage
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: "SrcIpAddr"  # CORRECT: ASIM normalized name
+
+# Common ASIM field naming patterns:
+# 
+# User/Account entities:
+#   - ActorUsername, TargetUsername, SrcUsername, DstUsername
+#   - ActorUserId, TargetUserId
+#   - ActorDomain, TargetDomain
+#
+# Host entities:
+#   - SrcHostname, DstHostname, DvcHostname
+#   - SrcIpAddr, DstIpAddr, DvcIpAddr
+#   - SrcDomain, DstDomain, DvcDomain
+#
+# Process entities:
+#   - ActingProcessName, TargetProcessName
+#   - ActingProcessId, TargetProcessId
+#   - ActingProcessCommandLine
+#
+# File entities:
+#   - TargetFileName, SrcFileName
+#   - TargetFilePath, SrcFilePath
+#   - TargetFileSHA256, SrcFileSHA256
+
+# Expected validation results:
+# - GUID: PASS (valid format and unique)
+# - Schema: PASS (all required fields present)
+# - Entity Mappings: PASS (valid structure)
+# - Strong Identifiers: PASS (using correct identifiers)
+# - ASIM Fields: 3 WARNINGS
+#   1. "TargetUserName" should be "TargetUsername"
+#   2. "Computer" is not ASIM normalized
+#   3. "IpAddress" should be "SrcIpAddr" or "DstIpAddr"
+# - Timing: PASS (valid timing constraints)
+# - KQL: PASS (valid syntax and semantics)
