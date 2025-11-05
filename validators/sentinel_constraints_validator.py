@@ -21,7 +21,7 @@ class SentinelConstraintsValidator(BaseValidator):
     VALID_SEVERITIES = ["Informational", "Low", "Medium", "High"]
     
     # Valid values for triggerOperator field
-    VALID_TRIGGER_OPERATORS = ["GreaterThan", "LessThan", "Equal"]
+    VALID_TRIGGER_OPERATORS = ["GreaterThan", "LessThan", "Equal", "gt", "lt", "eq"]
     
     # Valid MITRE ATT&CK v13 tactics (no spaces)
     VALID_TACTICS = [

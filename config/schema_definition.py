@@ -7,7 +7,6 @@ Defines the expected schema structure and data types for Sentinel Analytics Rule
 REQUIRED_FIELDS = [
     'id',
     'name',
-    'displayName',
     'kind',
     'description',
     'severity',
