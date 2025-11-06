@@ -47,6 +47,19 @@ class TimingValidator(BaseValidator):
                     f"queryPeriod '{query_period}' ({period_minutes} minutes)",
                     field='queryFrequency'
                 ))
+            
+            # Check: When queryPeriod >= 2 days, queryFrequency must be >= 1 hour
+            two_days_minutes = 2 * 24 * 60  # 2880 minutes (2 days)
+            one_hour_minutes = 60  # 60 minutes (1 hour)
+            
+            if period_minutes >= two_days_minutes and freq_minutes < one_hour_minutes:
+                errors.append(self.create_error(
+                    f"When queryPeriod is greater than or equal to 2 days, "
+                    f"queryFrequency must be greater than or equal to 1 hour. "
+                    f"Current values: queryPeriod '{query_period}' ({period_minutes} minutes), "
+                    f"queryFrequency '{query_frequency}' ({freq_minutes} minutes)",
+                    field='queryFrequency'
+                ))
         
         if period_minutes is not None:
             # Check: queryPeriod <= 14 days (20160 minutes)

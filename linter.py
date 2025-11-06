@@ -16,8 +16,6 @@ from validators.schema_validator import SchemaValidator
 from validators.entity_validator import EntityValidator
 from validators.timing_validator import TimingValidator
 from validators.kql_validator import KQLValidator
-from validators.asim_field_validator import ASIMFieldValidator
-from validators.sentinel_constraints_validator import SentinelConstraintsValidator
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
 from config.schema_definition import SENTINEL_SCHEMA
@@ -74,12 +72,10 @@ class SentinelLinter:
         """
         self.validators = []
         
-        # Always-enabled validators (order matters for logical progression)
+        # Always-enabled validators
         self.validators.append(GuidValidator())
         self.validators.append(SchemaValidator())
-        self.validators.append(SentinelConstraintsValidator())  # NEW: Validates Microsoft requirements
         self.validators.append(EntityValidator())
-        self.validators.append(ASIMFieldValidator())
         self.validators.append(TimingValidator())
         
         # Optional KQL validator (may not be available if .NET not installed)
@@ -321,6 +317,13 @@ Examples:
         if not args.file.exists():
             print(f"ERROR: File not found: {args.file}")
             return 1
+        
+        # Check file extension
+        if args.file.suffix.lower() not in ['.yaml', '.yml']:
+            print(f"ERROR: File must have .yaml or .yml extension: {args.file}")
+            print(f"       Found extension: {args.file.suffix}")
+            return 1
+        
         result = linter.validate_file(args.file)
         results = [result]
     else:
