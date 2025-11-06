@@ -103,6 +103,14 @@ chmod +x quickstart.sh
 quickstart.bat
 ```
 
+**No DOTNET installation**
+
+Simply run
+```bash
+pip install -r requirements.txt
+
+```
+
 ### Step 4: Verify Installation
 
 ```bash
