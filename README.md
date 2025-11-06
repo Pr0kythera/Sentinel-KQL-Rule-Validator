@@ -103,9 +103,9 @@ chmod +x quickstart.sh
 quickstart.bat
 ```
 
-**No DOTNET installation**
+**For Non DOTNET installation**
 
-Simply run
+If you cannot install .net to use (--no-kql-validation) on the device after activating your ven Simply run the following to install the dependencies
 ```bash
 pip install -r requirements.txt
 
