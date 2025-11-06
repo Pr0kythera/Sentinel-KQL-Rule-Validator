@@ -181,12 +181,12 @@ def print_console_output(results: List[ValidationResult], verbose: bool = False)
                 field_info = f" (field: {error['field']})" if error['field'] else ""
                 print(f"  [ERROR] {error['validator']}: {error['message']}{field_info}")
         
-        if result.warnings and verbose:
+        if result.warnings or verbose:
             for warning in result.warnings:
                 field_info = f" (field: {warning['field']})" if warning['field'] else ""
                 print(f"  [WARN]  {warning['validator']}: {warning['message']}{field_info}")
         
-        if result.errors or (result.warnings and verbose):
+        if result.errors or (result.warnings or verbose):
             print()
     
     print("="*70)
