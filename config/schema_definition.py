@@ -42,7 +42,7 @@ EXPECTED_TYPES = {
     'tactics': list,
     'relevantTechniques': list,
     'entityMappings': list,
-    'customDetails': list,
+    'customDetails': dict,
     
     # Incident Configuration
     'incidentConfiguration.createIncident': bool,
