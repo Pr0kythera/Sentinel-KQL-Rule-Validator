@@ -32,6 +32,13 @@ class TimingValidator(BaseValidator):
             freq_minutes, freq_error = self._parse_time_value(query_frequency, 'queryFrequency')
             if freq_error:
                 errors.append(freq_error)
+          # Add check for minimum frequency
+            elif freq_minutes < 5:
+                errors.append(self.create_error(
+                    f"queryFrequency '{query_frequency}' ({freq_minutes} minutes) cannot be less than "
+                    f"5 minutes",
+                    field='queryFrequency'
+                ))
         
         if query_period:
             period_minutes, period_error = self._parse_time_value(query_period, 'queryPeriod')
