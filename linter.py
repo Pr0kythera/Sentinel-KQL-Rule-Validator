@@ -7,6 +7,7 @@ Main entry point for validating Microsoft Sentinel Analytics Rules in YAML forma
 import sys
 import argparse
 import json
+import random
 from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
@@ -20,6 +21,111 @@ from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
 from config.schema_definition import SENTINEL_SCHEMA
 
+AFFIRMATIONS = [
+"This looks like a great piece of work!",
+"Great job!",
+"This looks fantastic!",
+"You’re writing clean, maintainable detection logic!",
+"Excellent logic — this reads beautifully.",
+"Solid structure! Easy to follow and efficient.",
+"Nicely done — clear intent throughout!",
+"You’re really improving with every commit!",
+"Your attention to detail is impressive!",
+"Elegant solution — simple and effective!",
+"This function is a thing of beauty!",
+"You’ve clearly thought this through.",
+"Such a clean implementation!",
+"Consistent style — great discipline!",
+"You’re writing like a true professional!",
+"The readability here is outstanding.",
+"This detection logic shows real craftsmanship.",
+"You’ve made something complex look simple!",
+"Top-tier work — seriously nice job!",
+"This is what maintainable detection logic looks like!",
+"Smart approach — efficient and elegant.",
+"Excellent choice of variable names!",
+"That’s some next-level refactoring!",
+"You’re coding like a pro!",
+"Nice abstraction — very tidy!",
+"Great job following best practices!",
+"Impressive optimization!",
+"This is detection logic future-you will thank you for!",
+"The logic here flows perfectly.",
+"Your commits are getting sharper every time!",
+"This looks production-ready!",
+"Beautiful structure — very clean!",
+"This is textbook-quality detection logic!",
+"Super clean and well-organized!",
+"Readable and robust — well done!",
+"You’re building something great here!",
+"That’s a very thoughtful implementation.",
+"Your problem-solving skills shine here!",
+"This function has perfect clarity.",
+"You’ve made this look effortless!",
+"This looks solid from start to finish!",
+"Your refactor game is strong!",
+"That’s a clever use of syntax!",
+"This is top-quality engineering.",
+"Nice touch — it really improves readability!",
+"You’ve nailed the logic here!",
+"Your detection logic looks confident and well-tested.",
+"This design is well thought-out!",
+"Excellent consistency — very professional.",
+"This is how great developers write detection logic!",
+"That’s a clean pattern — well spotted!",
+"Nicely modularized — easy to maintain!",
+"Impressive use of data structures!",
+"You’ve got a great sense for clean detection logic!",
+"This is both efficient and readable — perfect!",
+"Your logic is crystal clear!",
+"Excellent handling of edge cases!",
+"Your detection logic shows real maturity!",
+"You’re building this like a seasoned engineer!",
+"This will make debugging so much easier — great job!",
+"Your attention to performance is commendable!",
+"Very nice — concise and expressive!",
+"This solution scales beautifully!",
+"The clarity here is top-notch!",
+"This deserves a round of applause!",
+"Your coding style is really consistent!",
+"That’s a beautifully thought-out solution!",
+"You’ve made that refactor look easy!",
+"Very clean control flow — well structured!",
+"This looks deploy-ready!",
+"Excellent adherence to conventions!",
+"Nice job handling the edge logic!",
+"You’re really leveling up your coding game!",
+"Perfect use of comments — clear and helpful!",
+"That’s a clever little optimization!",
+"Your naming choices make this detection logic sing!",
+"This demonstrates great coding instincts!",
+"This would make any reviewer smile!",
+"Fantastic formatting — very readable!",
+"Your detection logic organization is excellent!",
+"That’s a smart approach to error handling!",
+"You’re writing like an engineer who cares!",
+"That’s exactly how I’d write it — great minds!",
+"This detection logic feels intuitive and natural!",
+"You’ve clearly tested this well — great confidence!",
+"Clean, compact, and clever — love it!",
+"Your structure here is bulletproof!",
+"Very thoughtful — shows good engineering judgment!",
+"Excellent modular design!",
+"This looks like production-quality detection logic!",
+"You’re writing with real clarity of thought!",
+"You’ve nailed simplicity without sacrificing power!",
+"That’s a very maintainable approach!",
+"Your detection logic reads like a story — clear and engaging!",
+"You’re definitely in your element here!",
+"The logic here is spot-on — great precision!",
+"Keep this up — you’re writing world-class detection logic!",
+"This would pass any detection logic review with flying colours!",
+"Your improvement curve is incredible!",
+"Great structure — future maintainers will thank you!",
+"That’s some elegant problem-solving!",
+"This is how you write detection logic that lasts!"
+"Wowzers"
+]
 
 class ValidationResult:
     """Container for validation results"""
@@ -172,28 +278,16 @@ def print_console_output(results: List[ValidationResult], verbose: bool = False)
     print("SENTINEL DETECTION LINTER - VALIDATION RESULTS")
     print("="*70 + "\n")
     
+    # Add random affirmation with 1/5 chance
+    if random.randint(1, 5) == 1:
+        print(f"\n💫 {random.choice(AFFIRMATIONS)} 💫\n")
+    
     for result in results:
         status_symbol = "[PASS]" if result.passed else "[FAIL]"
         print(f"{status_symbol} {result.file_path.name}")
         
-        if result.errors or verbose:
-            for error in result.errors:
-                field_info = f" (field: {error['field']})" if error['field'] else ""
-                print(f"  [ERROR] {error['validator']}: {error['message']}{field_info}")
-        
-        if result.warnings or verbose:
-            for warning in result.warnings:
-                field_info = f" (field: {warning['field']})" if warning['field'] else ""
-                print(f"  [WARN]  {warning['validator']}: {warning['message']}{field_info}")
-        
-        if result.errors or (result.warnings or verbose):
-            print()
-    
-    print("="*70)
-    print(f"Summary: {passed_files}/{total_files} files passed")
-    print(f"         {total_errors} errors, {total_warnings} warnings")
-    print("="*70 + "\n")
-    
+        # ...existing code...
+
     return failed_files == 0
 
 
