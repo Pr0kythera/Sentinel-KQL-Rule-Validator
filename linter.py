@@ -11,6 +11,7 @@ import random
 from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
+from colorama import init as colorama_init, Fore, Style
 
 from validators.guid_validator import GuidValidator
 from validators.schema_validator import SchemaValidator
@@ -21,6 +22,8 @@ from validators.kql_validator import KQLValidator
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
 from config.schema_definition import SENTINEL_SCHEMA
+
+colorama_init(autoreset=True)
 
 AFFIRMATIONS = [
 "This looks like a great piece of work!",
@@ -280,14 +283,18 @@ def print_console_output(results: List[ValidationResult], verbose: bool = False)
         print(f"\n💫💫💫💫 {random.choice(AFFIRMATIONS)} 💫💫💫💫\n")
     
     for result in results:
-        status_symbol = "[PASS]" if result.passed else "[FAIL]"
-        print(f"{status_symbol} {result.file_path.name}")
+        # color the status token
+        if result.passed:
+            status_token = f"{Fore.GREEN}[PASS]{Style.RESET_ALL}"
+        else:
+            status_token = f"{Fore.RED}[FAIL]{Style.RESET_ALL}"
+        print(f"\n {status_token} {Fore.YELLOW}{result.file_path.name}{Style.RESET_ALL}")
         
         # Print errors
         for error in result.errors:
             field = error.get('field', '')
             field_str = f" ({field})" if field else ""
-            print(f"  [ERROR] {error['validator']}: {error['message']}{field_str}")
+            print(f"\n  {Fore.RED}[ERROR]{Style.RESET_ALL} {Fore.BLUE}{error['validator']}{Style.RESET_ALL}: {error['message']}{Fore.YELLOW}{field_str}{Style.RESET_ALL}")
         
         # Print warnings if verbose
         if verbose:
