@@ -4,7 +4,7 @@ Validates entity mappings use strong identifiers and reference valid columns.
 """
 
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from .base_validator import BaseValidator
 from config.entity_identifiers import ENTITY_STRONG_IDENTIFIERS
@@ -50,6 +50,20 @@ class EntityValidator(BaseValidator):
                 field=f'entityMappings[{index}]'
             ))
             return errors
+        
+        # Check for misspelled or similar entityType field names (catch typos)
+        similar_fields = []
+        if 'entityType' not in entity:
+            similar_fields = [
+                key for key in entity.keys()
+                if 'entity' in key.lower() or 'type' in key.lower()
+            ]
+            if similar_fields:
+                errors.append(self.create_error(
+                    f"Found similar field '{similar_fields[0]}' - did you mean 'entityType'?",
+                    field=f'entityMappings[{index}].{similar_fields[0]}'
+                ))
+                return errors
         
         # Check required fields
         entity_type = entity.get('entityType')
@@ -106,69 +120,90 @@ class EntityValidator(BaseValidator):
 
         Reference: https://learn.microsoft.com/en-us/azure/sentinel/entities-reference
         """
-        # Check if entity type exists with exact case match
+        # Ensure entity_type is valid (exact case)
         if entity_type not in ENTITY_STRONG_IDENTIFIERS:
-            # Check if it exists with different casing
+            # If the entity exists with different casing, report casing error
             correct_case = self._find_correct_entity_case(entity_type)
-            
             if correct_case:
-                # Entity exists but with wrong casing - this is an ERROR
                 return self.create_error(
-                    f"Invalid entity type casing '{entity_type}'. "
-                    f"Entity types are case-sensitive. Use '{correct_case}' instead.",
+                    f"Invalid entity type casing '{entity_type}'. Entity types are case-sensitive. Use '{correct_case}' instead.",
                     field=f'entityMappings[{entity_idx}].entityType'
                 )
-            else:
-                # Entity doesn't exist at all - list valid options
-                valid_types = ', '.join(sorted(ENTITY_STRONG_IDENTIFIERS.keys()))
-                return self.create_error(
-                    f"Unknown entity type '{entity_type}'. "
-                    f"Valid entity types are: {valid_types}",
-                    field=f'entityMappings[{entity_idx}].entityType'
-                )
-        
+
+            # Unknown entity type
+            valid_types = ', '.join(sorted(ENTITY_STRONG_IDENTIFIERS.keys()))
+            return self.create_error(
+                f"Unknown entity type '{entity_type}'. Valid entity types are: {valid_types}",
+                field=f'entityMappings[{entity_idx}].entityType'
+            )
+
+        # Ensure identifier is one of the strong identifiers for this entity
         strong_identifiers = ENTITY_STRONG_IDENTIFIERS[entity_type]
-        
-        # Find correct case for identifier
+
+        # Defensive checks
+        if not isinstance(identifier, str) or not identifier:
+            return self.create_error(
+                f"Identifier for entity '{entity_type}' must be a non-empty string",
+                field=f'entityMappings[{entity_idx}].fieldMappings[{field_idx}].identifier'
+            )
+
+        # Find case-insensitive match
         correct_identifier = None
         for valid_id in strong_identifiers:
             if valid_id.lower() == identifier.lower():
                 correct_identifier = valid_id
-                if valid_id != identifier:
-                    return self.create_error(
-                        f"Invalid identifier casing '{identifier}'. "
-                        f"Identifiers are case-sensitive. Use '{valid_id}' instead.",
-                        field=f'entityMappings[{entity_idx}].fieldMappings[{field_idx}].identifier'
-                    )
                 break
 
-        if not correct_identifier:
+        if correct_identifier is None:
+            # Identifier not in list -> ERROR (per request)
             valid_ids = ', '.join(strong_identifiers)
-            return self.create_warning(
-                f"Entity type '{entity_type}' is using identifier '{identifier}' which may not be "
-                f"a strong identifier. Recommended strong identifiers: {valid_ids}",
+            return self.create_error(
+                f"Invalid identifier '{identifier}' for entity type '{entity_type}'. "
+                f"Valid identifiers: {valid_ids}",
                 field=f'entityMappings[{entity_idx}].fieldMappings[{field_idx}].identifier'
             )
-        
+
+        # If match exists but casing differs -> ERROR pointing to correct casing
+        if correct_identifier != identifier:
+            return self.create_error(
+                f"Invalid identifier casing '{identifier}'. Identifiers are case-sensitive. Use '{correct_identifier}' instead.",
+                field=f'entityMappings[{entity_idx}].fieldMappings[{field_idx}].identifier'
+            )
+
+        return None
+
+    def _find_correct_entity_case(self, entity_type: str) -> Optional[str]:
+        """
+        Find the correct casing for an entity type if it exists.
+        Returns the correctly-cased entity type (from ENTITY_STRONG_IDENTIFIERS) or None.
+        """
+        if not entity_type or not isinstance(entity_type, str):
+            return None
+
+        entity_lower = entity_type.lower()
+        for valid_entity in ENTITY_STRONG_IDENTIFIERS.keys():
+            if valid_entity.lower() == entity_lower:
+                return valid_entity
+
         return None
     
-def _find_correct_entity_case(self, entity_type: str) -> str:
-    """
-    Find the correct casing for an entity type if it exists.
-    
-    Args:
-        entity_type: Entity type with potentially incorrect casing
-    
-    Returns:
-        Correctly cased entity type if found, None otherwise
-    """
-    if not entity_type:
-        return None
+    def _find_correct_entity_case(self, entity_type: str) -> str:
+        """
+        Find the correct casing for an entity type if it exists.
         
-    entity_lower = entity_type.lower()
-    
-    for valid_entity in ENTITY_STRONG_IDENTIFIERS:
-        if valid_entity.lower() == entity_lower:
-            return valid_entity
-    
-    return None
+        Args:
+            entity_type: Entity type with potentially incorrect casing
+        
+        Returns:
+            Correctly cased entity type if found, None otherwise
+        """
+        if not entity_type:
+            return None
+            
+        entity_lower = entity_type.lower()
+        
+        for valid_entity in ENTITY_STRONG_IDENTIFIERS:
+            if valid_entity.lower() == entity_lower:
+                return valid_entity
+        
+        return None
