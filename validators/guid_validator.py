@@ -65,26 +65,45 @@ class GuidValidator(BaseValidator):
             return False
     
     def _find_duplicate_guids(self, guid: str, current_file: Path, all_files: List[Path]) -> List[Path]:
-        """Find other files with the same GUID"""
+        """Find other files with the same GUID (robust comparison)."""
         duplicates = []
-        
-        # Resolve current file path for accurate comparison
-        # This handles symlinks and different path representations
-        current_file_resolved = current_file.resolve()
-        
-        for file_path in all_files:
-            # Skip the current file (compare resolved paths)
-            if file_path.resolve() == current_file_resolved:
-                continue
-            
+
+        try:
+            current_file_resolved = Path(current_file).resolve()
+        except Exception:
+            current_file_resolved = None
+
+        # Normalize the GUID to a comparable string
+        guid_norm = str(guid).strip().lower()
+
+        for file_entry in all_files:
             try:
-                other_rule = load_yaml_file(file_path)
-                other_guid = other_rule.get('id')
-                
-                if other_guid and str(other_guid).lower() == str(guid).lower():
-                    duplicates.append(file_path)
+                other_path = Path(file_entry)
+            except Exception:
+                # skip invalid path entries
+                continue
+
+            # Skip the current file (compare resolved paths when possible)
+            try:
+                if current_file_resolved and other_path.resolve() == current_file_resolved:
+                    continue
+            except Exception:
+                # if resolve fails, fall back to string comparison
+                if str(other_path) == str(current_file):
+                    continue
+
+            try:
+                other_rule = load_yaml_file(other_path)
             except Exception:
                 # Skip files that can't be loaded
                 continue
-        
+
+            other_guid = other_rule.get('id')
+            if other_guid is None:
+                continue
+
+            # Normalize and compare
+            if str(other_guid).strip().lower() == guid_norm:
+                duplicates.append(other_path)
+
         return duplicates
