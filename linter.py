@@ -29,14 +29,11 @@ AFFIRMATIONS = [
 "Excellent logic — this reads beautifully.",
 "Solid structure! Easy to follow and efficient.",
 "Nicely done — clear intent throughout!",
-"You’re really improving with every commit!",
 "Your attention to detail is impressive!",
 "Elegant solution — simple and effective!",
 "This function is a thing of beauty!",
 "You’ve clearly thought this through.",
 "Such a clean implementation!",
-"Consistent style — great discipline!",
-"You’re writing like a true professional!",
 "The readability here is outstanding.",
 "This detection logic shows real craftsmanship.",
 "You’ve made something complex look simple!",
@@ -45,8 +42,6 @@ AFFIRMATIONS = [
 "Smart approach — efficient and elegant.",
 "Excellent choice of variable names!",
 "That’s some next-level refactoring!",
-"You’re coding like a pro!",
-"Nice abstraction — very tidy!",
 "Great job following best practices!",
 "Impressive optimization!",
 "This is detection logic future-you will thank you for!",
@@ -280,13 +275,30 @@ def print_console_output(results: List[ValidationResult], verbose: bool = False)
     
     # Add random affirmation with 1/5 chance
     if random.randint(1, 5) == 1:
-        print(f"\n💫 {random.choice(AFFIRMATIONS)} 💫\n")
+        print(f"\n💫💫💫💫 {random.choice(AFFIRMATIONS)} 💫💫💫💫\n")
     
     for result in results:
         status_symbol = "[PASS]" if result.passed else "[FAIL]"
         print(f"{status_symbol} {result.file_path.name}")
         
-        # ...existing code...
+        # Print errors
+        for error in result.errors:
+            field = error.get('field', '')
+            field_str = f" ({field})" if field else ""
+            print(f"  [ERROR] {error['validator']}: {error['message']}{field_str}")
+        
+        # Print warnings if verbose
+        if verbose:
+            for warning in result.warnings:
+                field = warning.get('field', '')
+                field_str = f" ({field})" if field else ""
+                print(f"  [WARNING] {warning['validator']}: {warning['message']}{field_str}")
+    
+    # Print summary
+    print("\n" + "-"*70)
+    print(f"Files: {total_files} ({passed_files} passed, {failed_files} failed)")
+    print(f"Issues: {total_errors} errors, {total_warnings} warnings")
+    print("-"*70 + "\n")
 
     return failed_files == 0
 
