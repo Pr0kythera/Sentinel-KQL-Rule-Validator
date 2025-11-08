@@ -109,6 +109,9 @@ class SentinelConstraintsValidator(BaseValidator):
         # Validate Grouping Errors
         errors.extend(self._validate_grouping_configuration(rule_data))
         
+        # Validate customDetails keys (must start with letter, alphanumeric only)
+        errors.extend(self._validate_custom_details_keys(rule_data))
+        
         return errors
     
     def _validate_kind(self, rule_data: dict) -> List[Dict]:
@@ -517,6 +520,30 @@ class SentinelConstraintsValidator(BaseValidator):
                 field='customDetails'
             ))
         
+        return errors
+    
+    def _validate_custom_details_keys(self, rule_data: dict) -> List[Dict]:
+        """Validate customDetails keys: must start with a letter and contain only alphanumeric chars"""
+        errors = []
+        custom_details = rule_data.get('customDetails')
+        if not custom_details or not isinstance(custom_details, dict):
+            return errors
+
+        pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]*$')
+        for key in custom_details.keys():
+            # key should be a non-empty string
+            if not isinstance(key, str) or not key.strip():
+                errors.append(self.create_error(
+                    "customDetails field name must be a non-empty string",
+                    field=f'customDetails.{key}'
+                ))
+                continue
+
+            if not pattern.match(key):
+                errors.append(self.create_error(
+                    f"customDetails field name '{key}' is invalid. Field names must start with a letter and contain only alphanumeric characters (A-Z, a-z, 0-9).",
+                    field=f'customDetails.{key}'
+                ))
         return errors
     
     def _validate_alert_details_override(self, rule_data: dict) -> List[Dict]:
