@@ -15,7 +15,12 @@ REQUIRED_FIELDS = [
     'queryFrequency',
     'queryPeriod',
     'triggerOperator',
-    'triggerThreshold'
+    'entityMappings',
+    'triggerThreshold',
+    'tactics',
+    'relevantTechniques',
+    'eventGroupingSettings',
+    'incidentConfiguration'
 ]
 
 # Expected data types for fields
