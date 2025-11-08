@@ -186,24 +186,3 @@ class EntityValidator(BaseValidator):
                 return valid_entity
 
         return None
-    
-    def _find_correct_entity_case(self, entity_type: str) -> str:
-        """
-        Find the correct casing for an entity type if it exists.
-        
-        Args:
-            entity_type: Entity type with potentially incorrect casing
-        
-        Returns:
-            Correctly cased entity type if found, None otherwise
-        """
-        if not entity_type:
-            return None
-            
-        entity_lower = entity_type.lower()
-        
-        for valid_entity in ENTITY_STRONG_IDENTIFIERS:
-            if valid_entity.lower() == entity_lower:
-                return valid_entity
-        
-        return None
