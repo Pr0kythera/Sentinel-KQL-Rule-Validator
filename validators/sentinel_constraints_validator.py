@@ -106,6 +106,9 @@ class SentinelConstraintsValidator(BaseValidator):
         # Validate alertDetailsOverride constraints
         errors.extend(self._validate_alert_details_override(rule_data))
         
+        # Validate Grouping Errors
+        errors.extend(self._validate_grouping_configuration(rule_data))
+        
         return errors
     
     def _validate_kind(self, rule_data: dict) -> List[Dict]:
@@ -113,8 +116,11 @@ class SentinelConstraintsValidator(BaseValidator):
         errors = []
         
         kind = rule_data.get('kind')
-        if not kind:
-            # Missing kind would be caught by schema validator
+        if not kind or not kind.strip():
+            errors.append(self.create_error(
+                "Field 'kind' cannot be empty",
+                field='kind'
+            ))
             return errors
         
         if kind not in self.VALID_KINDS:
@@ -132,8 +138,11 @@ class SentinelConstraintsValidator(BaseValidator):
         errors = []
         
         severity = rule_data.get('severity')
-        if not severity:
-            # Missing severity would be caught by schema validator
+        if not severity or not severity.strip():
+            errors.append(self.create_error(
+                "Field 'severity' cannot be empty",
+                field='severity'
+            ))
             return errors
         
         if severity not in self.VALID_SEVERITIES:
@@ -151,8 +160,11 @@ class SentinelConstraintsValidator(BaseValidator):
         errors = []
         
         trigger_operator = rule_data.get('triggerOperator')
-        if not trigger_operator:
-            # Missing triggerOperator would be caught by schema validator
+        if not trigger_operator or not trigger_operator.strip():
+            errors.append(self.create_error(
+                "Field 'triggerOperator' cannot be empty",
+                field='triggerOperator'
+            ))
             return errors
         
         if trigger_operator not in self.VALID_TRIGGER_OPERATORS:
@@ -386,9 +398,12 @@ class SentinelConstraintsValidator(BaseValidator):
         errors = []
         
         version = rule_data.get('version')
-        if not version:
-            # Version is mandatory according to documentation
-            return errors  # Would be caught by schema validator if in required fields
+        if not version or not version.strip():
+            errors.append(self.create_error(
+                "Field 'version' cannot be empty",
+                field='version'
+            ))
+            return errors
         
         if not isinstance(version, str):
             errors.append(self.create_error(
@@ -586,3 +601,76 @@ class SentinelConstraintsValidator(BaseValidator):
                 break  # Only report once per field
         
         return errors
+    
+    def _validate_grouping_configuration(self, rule_data: dict) -> List[Dict]:
+        """Validate grouping configuration and lookback duration"""
+        errors = []
+        
+        incident_config = rule_data.get('incidentConfiguration', {})
+        if not isinstance(incident_config, dict):
+            errors.append(self.create_error(
+                "Field 'incidentConfiguration' must be a dictionary",
+                field='incidentConfiguration'
+            ))
+            return errors
+        
+        grouping_config = incident_config.get('groupingConfiguration', {})
+        if not isinstance(grouping_config, dict):
+            errors.append(self.create_error(
+                "Field 'groupingConfiguration' must be a dictionary",
+                field='incidentConfiguration.groupingConfiguration'
+            ))
+            return errors
+        
+        enabled = grouping_config.get('enabled')
+        if enabled:
+            # Validate lookbackDuration when grouping is enabled
+            lookback = grouping_config.get('lookbackDuration')
+            if not lookback:
+                errors.append(self.create_error(
+                    "When grouping is enabled, lookbackDuration must be specified",
+                    field='incidentConfiguration.groupingConfiguration.lookbackDuration'
+                ))
+                return errors
+            
+            # Convert lookback duration to hours for validation
+            try:
+                hours = self._parse_duration_to_hours(lookback)
+                if hours < 3:
+                    errors.append(self.create_error(
+                        f"lookbackDuration '{lookback}' is too short. Minimum duration is 3h",
+                        field='incidentConfiguration.groupingConfiguration.lookbackDuration'
+                    ))
+                elif hours > 24:
+                    errors.append(self.create_error(
+                        f"lookbackDuration '{lookback}' is too long. Maximum duration is 24h",
+                        field='incidentConfiguration.groupingConfiguration.lookbackDuration'
+                    ))
+            except ValueError as e:
+                errors.append(self.create_error(
+                    f"Invalid lookbackDuration format: {str(e)}",
+                    field='incidentConfiguration.groupingConfiguration.lookbackDuration'
+                ))
+        
+        return errors
+
+    def _parse_duration_to_hours(self, duration: str) -> float:
+        """Convert duration string to hours"""
+        if not isinstance(duration, str):
+            raise ValueError("Duration must be a string")
+        
+        # Remove whitespace and convert to lowercase
+        duration = duration.strip().lower()
+        
+        if not duration:
+            raise ValueError("Duration cannot be empty")
+        
+        # Handle different time units
+        if duration.endswith('h'):
+            return float(duration[:-1])
+        elif duration.endswith('d'):
+            return float(duration[:-1]) * 24
+        elif duration.endswith('m'):
+            return float(duration[:-1]) / 60
+        else:
+            raise ValueError("Duration must end with 'm', 'h', or 'd'")
