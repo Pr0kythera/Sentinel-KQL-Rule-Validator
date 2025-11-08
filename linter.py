@@ -258,10 +258,14 @@ class SentinelLinter:
             return []
         
         results = []
-        for file_path in yaml_files:
+        total = len(yaml_files)
+    #  Simple progress output to avoid silent hangs
+        for idx, file_path in enumerate(yaml_files, start=1):
             result = self.validate_file(file_path, yaml_files)
             results.append(result)
-        
+            # print occasional progress so console isn't silent for long runs
+            if idx % 10 == 0 or idx == total:
+                print(f"\n{Fore.GREEN}Validated {idx}/{total} files...{Style.RESET_ALL}")
         return results
 
 
