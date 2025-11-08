@@ -16,6 +16,7 @@ from validators.guid_validator import GuidValidator
 from validators.schema_validator import SchemaValidator
 from validators.entity_validator import EntityValidator
 from validators.timing_validator import TimingValidator
+from validators.sentinel_constraints_validator import SentinelConstraintsValidator
 from validators.kql_validator import KQLValidator
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
@@ -178,6 +179,7 @@ class SentinelLinter:
         self.validators.append(SchemaValidator())
         self.validators.append(EntityValidator())
         self.validators.append(TimingValidator())
+        self.validators.append(SentinelConstraintsValidator())
         
         # Optional KQL validator (may not be available if .NET not installed)
         self.kql_validator = None
