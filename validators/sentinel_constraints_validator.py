@@ -55,6 +55,8 @@ class SentinelConstraintsValidator(BaseValidator):
     MAX_ALERT_NAME_LENGTH = 256
     MAX_ALERT_DESCRIPTION_LENGTH = 5000
     MAX_ALERT_PARAMETERS = 3
+    MAX_CUSTOM_DETAILS_KEY_LENGTH = 19  # Maximum length for customDetails field names (< 20)
+
     
     @property
     def validator_name(self) -> str:
@@ -538,6 +540,13 @@ class SentinelConstraintsValidator(BaseValidator):
                     field=f'customDetails.{key}'
                 ))
                 continue
+            
+            if len(key) >= self.MAX_CUSTOM_DETAILS_KEY_LENGTH + 1:  # or just > 19
+                errors.append(self.create_error(
+                    f"customDetails field name '{key}' is too long. "
+                    f"Field names must be less than 20 characters. Current length: {len(key)} characters",
+                    field=f'customDetails.{key}'
+                ))
 
             if not pattern.match(key):
                 errors.append(self.create_error(
