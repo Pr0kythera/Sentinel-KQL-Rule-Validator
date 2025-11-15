@@ -82,6 +82,14 @@ class EntityValidator(BaseValidator):
             ))
             return errors
         
+        # Validate field mappings count (1-3 identifiers per entity)
+        if len(field_mappings) > 3:
+            errors.append(self.create_error(
+            f"Entity '{entity_type}' has {len(field_mappings)} fieldMappings but maximum allowed is 3",
+            field=f'entityMappings[{index}].fieldMappings'
+            ))
+
+        
         # Validate field mappings
         for field_idx, field_mapping in enumerate(field_mappings):
             if not isinstance(field_mapping, dict):
@@ -185,4 +193,25 @@ class EntityValidator(BaseValidator):
             if valid_entity.lower() == entity_lower:
                 return valid_entity
 
+        return None
+    
+    def _find_correct_entity_case(self, entity_type: str) -> str:
+        """
+        Find the correct casing for an entity type if it exists.
+        
+        Args:
+            entity_type: Entity type with potentially incorrect casing
+        
+        Returns:
+            Correctly cased entity type if found, None otherwise
+        """
+        if not entity_type:
+            return None
+            
+        entity_lower = entity_type.lower()
+        
+        for valid_entity in ENTITY_STRONG_IDENTIFIERS:
+            if valid_entity.lower() == entity_lower:
+                return valid_entity
+        
         return None
