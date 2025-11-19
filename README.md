@@ -1,11 +1,17 @@
 # Sentinel Detection Linter
 
-A comprehensive Python-based linter for validating Microsoft Sentinel Analytics Rules in YAML format before deployment. This tool performs extensive validation checks including GUID validation, schema validation, Microsoft Sentinel constraints, ASIM field naming, entity mapping verification, query timing validation, and full KQL syntax/semantic validation using Microsoft's official Kusto.Language library.
+A comprehensive Python-based linter for validating Microsoft Sentinel Analytics Rules in YAML format before deployment. This tool performs extensive validation checks including GUID validation, YAML formatting validation, schema validation, Microsoft Sentinel constraints, ASIM field naming, entity mapping verification, query timing validation, and full KQL syntax/semantic validation using Microsoft's official Kusto.Language library.
 
 ## Features
 
 - **GUID Validation**: Validates GUID format and ensures uniqueness across all detection files
-- **YAML Validation**: Checks YAML syntax, structure, and proper indentation
+- **YAML Format Validation**: Comprehensive YAML formatting checks including:
+  - YAML syntax and structure validation
+  - Tab character detection (YAML requires spaces)
+  - Indentation consistency checking
+  - Duplicate key detection at all nesting levels
+  - Trailing whitespace detection
+  - Empty lines with whitespace detection
 - **Data Type Validation**: Ensures all fields have correct data types (bool vs string, etc.)
 - **Sentinel Constraints Validation**: Validates all Microsoft Sentinel field requirements (kind, severity, tactics, techniques, limits, etc.)
 - **ASIM Field Naming**: Warns when entity mappings don't follow ASIM normalized field naming conventions
@@ -13,8 +19,10 @@ A comprehensive Python-based linter for validating Microsoft Sentinel Analytics 
 - **Entity Column Validation**: Confirms entity mapping columns exist in KQL query output
 - **Query Timing Validation**: Validates queryFrequency and queryPeriod constraints
 - **KQL Query Validation**: Full syntax and semantic validation using Microsoft Kusto.Language library
+- **Color-Coded Output**: Clear, colorful console output with pass/fail indicators
+- **Progress Reporting**: Real-time progress updates when validating multiple files
 - **Modular Architecture**: Easy to extend with new validation checks
-- **Multiple Output Formats**: Console (human-readable) and JSON output
+- **Multiple Output Formats**: Console (human-readable with colors) and JSON output
 
 ## Prerequisites
 
@@ -143,6 +151,7 @@ sentinel-detection-linter/
 |-- validators/
 |   |-- base_validator.py                  # Abstract base class
 |   |-- guid_validator.py                  # GUID validation
+|   |-- yaml_validator.py                  # YAML formatting validation
 |   |-- schema_validator.py                # YAML schema validation
 |   |-- sentinel_constraints_validator.py  # Microsoft Sentinel constraints
 |   |-- entity_validator.py                # Entity mapping validation
@@ -228,21 +237,47 @@ Ensures the GUID is unique across all YAML files in the same directory.
 
 **Example Error:**
 ```
-[ERROR] GUID Validator: GUID 'c6a213e4-f321-4f78-b12a-3e0e7d56e29a' is not unique. 
+[ERROR] GUID Validator: GUID 'c6a213e4-f321-4f78-b12a-3e0e7d56e29a' is not unique.
         Also found in: detection2.yaml, detection3.yaml
 ```
 
 ### 3. YAML Format Validation
 
-Checks for proper YAML syntax and indentation.
+Comprehensive validation of YAML formatting and structure best practices.
+
+**Checks Performed:**
+- **Tab Detection**: YAML spec requires spaces, not tabs
+- **Indentation Consistency**: Ensures consistent indentation units (2 or 4 spaces)
+- **Duplicate Keys**: Detects duplicate keys at all nesting levels
+- **Trailing Whitespace**: Identifies lines with trailing spaces
+- **Empty Line Whitespace**: Detects empty lines containing only whitespace
+
+**Example Errors:**
+```
+[ERROR] YAML Validator: Line 15: Tab character found at position(s) [0, 4].
+        YAML spec requires spaces for indentation, not tabs.
+
+[ERROR] YAML Validator: Duplicate key 'entityMappings' found at lines: 23, 45.
+        YAML does not allow duplicate keys at the same level.
+
+[WARNING] YAML Validator: Line 12: Indentation of 3 spaces is not a multiple of
+          the detected indent unit (2 spaces). This may indicate inconsistent indentation.
+
+[WARNING] YAML Validator: Trailing whitespace found on line(s): 8, 15, 22.
+          Consider removing trailing spaces for cleaner formatting.
+```
+
+### 4. YAML Syntax Validation
+
+Checks for proper YAML parsing and syntax errors.
 
 **Example Error:**
 ```
-[ERROR] YAML Parser: YAML parsing error at line 15, column 3: 
+[ERROR] YAML Parser: YAML parsing error at line 15, column 3:
         mapping values are not allowed here
 ```
 
-### 4. Data Type Validation
+### 5. Data Type Validation
 
 Ensures fields have correct data types. Common issue: boolean values as strings.
 
@@ -252,7 +287,7 @@ Ensures fields have correct data types. Common issue: boolean values as strings.
         Use enabled: true instead of enabled: 'true'
 ```
 
-### 5. Microsoft Sentinel Constraints Validation
+### 6. Microsoft Sentinel Constraints Validation
 
 Validates all Microsoft Sentinel Analytics Rule requirements per official documentation.
 
@@ -310,7 +345,7 @@ Reference: https://learn.microsoft.com/en-us/azure/sentinel/sentinel-analytic-ru
         Current count: 11 mappings
 ```
 
-### 6. Entity Strong Identifier Validation
+### 7. Entity Strong Identifier Validation
 
 Validates entity mappings use strong identifiers per Microsoft documentation.
 
@@ -322,7 +357,7 @@ Reference: https://learn.microsoft.com/en-us/azure/sentinel/entities-reference
        a strong identifier. Recommended strong identifiers: FullName, Sid, AadUserId, ObjectGuid
 ```
 
-### 7. ASIM Field Naming Validation
+### 8. ASIM Field Naming Validation
 
 Warns when entity mapping `columnName` values don't follow ASIM (Advanced Security Information Model) normalized field naming conventions.
 
@@ -343,17 +378,17 @@ Reference: https://learn.microsoft.com/en-us/azure/sentinel/normalization-common
        improves query consistency and cross-source correlation.
 ```
 
-### 8. Entity Column Validation
+### 9. Entity Column Validation
 
 Confirms that entity mapping columnNames exist in the KQL query output.
 
 **Example Error:**
 ```
-[ERROR] KQL Validator: Entity mapping for 'Account' references column 'NonExistentColumn' 
+[ERROR] KQL Validator: Entity mapping for 'Account' references column 'NonExistentColumn'
         which is not present in query output. Available columns: Computer, Account, EventID
 ```
 
-### 9. Query Timing Validation
+### 10. Query Timing Validation
 
 Validates queryFrequency and queryPeriod constraints:
 - queryPeriod cannot exceed 14 days
@@ -361,11 +396,11 @@ Validates queryFrequency and queryPeriod constraints:
 
 **Example Error:**
 ```
-[ERROR] Timing Validator: queryFrequency '2h' (120 minutes) cannot exceed 
+[ERROR] Timing Validator: queryFrequency '2h' (120 minutes) cannot exceed
         queryPeriod '1h' (60 minutes)
 ```
 
-### 10. KQL Query Validation
+### 11. KQL Query Validation
 
 Full syntax and semantic validation using Microsoft's official parser.
 
@@ -385,23 +420,36 @@ Full syntax and semantic validation using Microsoft's official parser.
 
 ### Console Output (Default)
 
+The console output includes color-coded status indicators, file names, and error messages for improved readability:
+
+- **Green [PASS]** for successful validations
+- **Red [FAIL]** for failed validations
+- **Yellow** file names for easy identification
+- **Blue** validator names for quick scanning
+- **Red [ERROR]** tags for critical issues
+
+**Example Output:**
 ```
 ======================================================================
 SENTINEL DETECTION LINTER - VALIDATION RESULTS
 ======================================================================
 
-[PASS] valid_detection.yaml
+ <:D Great job! <:D
 
-[FAIL] invalid_detection.yaml
+ [PASS] valid_detection.yaml
+
+ [FAIL] invalid_detection.yaml
   [ERROR] GUID Validator: Field 'id' contains invalid GUID format: 'invalid-guid'
   [ERROR] Sentinel Constraints Validator: Field 'kind' has invalid value 'Custom'
   [ERROR] KQL Validator: KQL syntax error: Expected operator
 
-======================================================================
-Summary: 1/2 files passed
-         3 errors, 0 warnings
-======================================================================
+----------------------------------------------------------------------
+Files: 2 (1 passed, 1 failed)
+Issues: 3 errors, 0 warnings
+----------------------------------------------------------------------
 ```
+
+**Note:** Random affirmations appear occasionally (1 in 5 chance) when displaying results to encourage good detection engineering practices!
 
 ### JSON Output
 
@@ -728,6 +776,30 @@ For issues, questions, or suggestions:
 - MITRE for the ATT&CK framework
 
 ## Version History
+
+### v1.2.0 (Current)
+- **Added**: YAML Format Validator - Comprehensive YAML formatting validation
+  - Tab character detection (YAML spec requires spaces)
+  - Indentation consistency checking with GCD-based analysis
+  - Duplicate key detection at all nesting levels
+  - Trailing whitespace detection
+  - Empty line whitespace detection
+- **Enhanced**: Console output with color formatting using colorama
+  - Green [PASS] and Red [FAIL] indicators
+  - Color-coded errors, warnings, and file names
+  - Improved readability and visual feedback
+- **Added**: Progress reporting for directory validation
+  - Real-time progress updates every 10 files
+  - Shows "Validated X/Y files..." during long runs
+- **Added**: Random affirmations in validation output
+  - Motivational messages on successful validations
+  - 120+ encouraging affirmations to brighten your day
+- **Improved**: Cross-platform .NET runtime support
+  - Better macOS and Linux CoreCLR detection
+  - Enhanced setup.py with improved error handling
+  - Non-.NET installation option for environments without .NET
+- **Updated**: Example files (valid_detection.yaml, invalid_detection.yaml)
+- **Fixed**: Various bug fixes and stability improvements
 
 ### v1.1.0 (2025-10-09)
 - **Added**: Sentinel Constraints Validator - Validates all Microsoft Sentinel requirements
