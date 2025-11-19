@@ -2,7 +2,7 @@
 # This file intentionally contains errors for testing
 
 # ERROR: Invalid GUID format
-id: not-a-valid-guid-format
+id: b1c2d3e4-f5a6-7890-bcde-f12345678901
 
 name: "Test Invalid Detection"
 displayName: "Test Invalid Detection Display Name"
@@ -11,10 +11,10 @@ kind: "Scheduled"
 
 description: "This is a test detection with intentional errors"
 
-severity: "High"
+severity: "High"  # ERROR: Invalid severity level
 
 # ERROR: Boolean as string instead of bool
-enabled: "true"
+enabled: true
 
 # ERROR: queryFrequency exceeds queryPeriod
 queryFrequency: "1h"
@@ -26,6 +26,7 @@ triggerThreshold: 0
 tactics:
   - "Initial Access"
 
+# Error: Invalid technique ID format
 relevantTechniques:
   - "T1078"
 
@@ -34,8 +35,8 @@ query: |
   SecurityEvent
   | where EventID == 4625
   | sorty by TimeGenerated desc
-  | project TimeGenerated, Computer, Account, IpAddress
-  | extend AccountEntity = Account, HostEntity = Computer
+  | projectf TimeGenerated, Computer, Account, IpAddress
+  | extend AccountEntity = Account, Hostentity = Computer
 
 suppressionEnabled: false
 
@@ -46,17 +47,31 @@ incidentConfiguration:
     reopenClosedIncident: false
     lookbackDuration: "5m"
     matchingMethod: "AllEntities"
-
 eventGroupingSettings:
   aggregationKind: "SingleAlert"
 
-# ERROR: Entity mapping references column not in query output
+# ERROR: Entity mapping references column not in query output and too many field mappings
 entityMappings:
-  - entityType: "Account"
+  - entityype: "Account"
     fieldMappings:
       - identifier: "Name"
+        columnName: "NonExistentColumn"
+        fieldMappings:
+      - identifier: "DnsDomain"
+        columnName: "NonExistentColumn"
+        fieldMappings:
+      - identifier: "UPNSuffix"
+        columnName: "NonExistentColumn"
+        fieldMappings:
+      - identifier: "Sid"
+        columnName: "NonExistentColumn"
+        fieldMappings:
+      - identifier: "AadTenantId"
         columnName: "NonExistentColumn"
   - entityType: "Host"
     fieldMappings:
       - identifier: "HostName"
         columnName: "HostEntity"
+customDetails:
+  CompositeZScore: CompositeZScore
+  CompositeZScore: CompositeZScore
