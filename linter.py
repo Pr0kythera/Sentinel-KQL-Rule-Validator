@@ -19,6 +19,7 @@ from validators.entity_validator import EntityValidator
 from validators.timing_validator import TimingValidator
 from validators.sentinel_constraints_validator import SentinelConstraintsValidator
 from validators.kql_validator import KQLValidator
+from validators.yaml_validator import YAMLValidator
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
 from config.schema_definition import SENTINEL_SCHEMA
@@ -183,6 +184,7 @@ class SentinelLinter:
         self.validators.append(EntityValidator())
         self.validators.append(TimingValidator())
         self.validators.append(SentinelConstraintsValidator())
+        self.validators.append(YAMLValidator())
         
         # Optional KQL validator (may not be available if .NET not installed)
         self.kql_validator = None
@@ -284,7 +286,7 @@ def print_console_output(results: List[ValidationResult], verbose: bool = False)
     
     # Add random affirmation with 1/5 chance
     if random.randint(1, 5) == 1:
-        print(f"\n💫💫💫💫 {random.choice(AFFIRMATIONS)} 💫💫💫💫\n")
+        print(f"\n <:D {random.choice(AFFIRMATIONS)} <:D \n")
     
     for result in results:
         # color the status token
