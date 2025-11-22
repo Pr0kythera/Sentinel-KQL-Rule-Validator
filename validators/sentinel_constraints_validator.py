@@ -365,7 +365,7 @@ class SentinelConstraintsValidator(BaseValidator):
         
         # Check maximum length
         if len(description) > self.MAX_DESCRIPTION_LENGTH:
-            errors.append(self.create_error(
+            errors.append(self.create_warning(
                 f"Field 'description' exceeds maximum length of {self.MAX_DESCRIPTION_LENGTH} characters. "
                 f"Current length: {len(description)} characters",
                 field='description'
