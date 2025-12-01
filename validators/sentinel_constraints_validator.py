@@ -336,7 +336,7 @@ class SentinelConstraintsValidator(BaseValidator):
         
         # Check maximum length
         if len(name) > self.MAX_NAME_LENGTH:
-            errors.append(self.create_error(
+            errors.append(self.create_warning(
                 f"Field 'name' exceeds maximum length of {self.MAX_NAME_LENGTH} characters. "
                 f"Current length: {len(name)} characters",
                 field='name'
@@ -389,7 +389,7 @@ class SentinelConstraintsValidator(BaseValidator):
         
         # Check maximum length
         if len(query) > self.MAX_QUERY_LENGTH:
-            errors.append(self.create_error(
+            errors.append(self.create_warning(
                 f"Field 'query' exceeds maximum length of {self.MAX_QUERY_LENGTH} characters. "
                 f"Current length: {len(query)} characters. "
                 f"Consider moving static lists to watchlists or using KQL functions.",
