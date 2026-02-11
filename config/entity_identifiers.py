@@ -114,6 +114,7 @@ ENTITY_STRONG_IDENTIFIERS = {
     
     "MailMessage": [
         "NetworkMessageId",
+        "InternetMessageId",
         "Recipient",
         "Urls",
         "Threats",
