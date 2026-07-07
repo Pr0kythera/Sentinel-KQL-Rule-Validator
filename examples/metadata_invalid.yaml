@@ -14,8 +14,8 @@ version: "1.0.0"
 
 # Invalid metadata
 author: "not-an-email"
-creationDate: "2026-01-01T09:00:00"
-reviewDate: "2026-03-01T09:00:00"
+creationDate: 2026-01-01T09:00:00
+reviewDate: 2026-03-01T09:00:00
 environment: ""
 tables:
   - "SecurityEvent"

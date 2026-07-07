@@ -15,8 +15,8 @@ enabled: true
 
 # Metadata (Task 4)
 author: "contact.prokythera@gmail.com"
-creationDate: "2026-01-01T09:00:00"
-reviewDate: "2027-06-01T09:00:00"
+creationDate: 2026-01-01T09:00:00
+reviewDate: 2027-06-01T09:00:00
 environment: "Production"
 tables:
   - "SecurityEvent"

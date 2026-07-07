@@ -5,16 +5,19 @@ Value, format, and cross-field checks for the new rule metadata fields. Presence
 and type are enforced by the schema validator; this validator owns the semantics:
 
 - author: a valid ASCII email address.
-- creationDate: exact 'YYYY-MM-DDTHH:MM:SS' format, and must be in the past (UTC).
-- reviewDate: same format; must be at least one year (365-day approximation) after
+- creationDate: a datetime (an unquoted YAML timestamp such as
+  2026-07-07T12:12:00, which PyYAML parses to a datetime); must be in the past (UTC).
+- reviewDate: a datetime; must be at least one year (365-day approximation) after
   creationDate. Warns when reviewDate is in the past (review overdue).
 - environment: non-empty string; optionally constrained to an allow-list.
 - tables: non-empty list of unique non-empty strings; warns when a declared table
   is never mentioned in the query text (best-effort, textual).
 
-Date handling uses UTC consistently (the safer choice for CI). The one-year rule
-uses a documented 365-day approximation rather than calendar arithmetic to avoid
-adding a dateutil dependency.
+The datetime type itself is enforced by the schema validator; this validator owns
+the semantic rules. Timezone-aware values (a trailing Z or offset) are normalized
+to naive UTC so comparisons are consistent (UTC is the safer choice for CI). The
+one-year rule uses a documented 365-day approximation rather than calendar
+arithmetic to avoid adding a dateutil dependency.
 """
 
 import re
@@ -77,15 +80,20 @@ class MetadataValidator(BaseValidator):
 
     # -- dates ----------------------------------------------------------------
 
-    def _parse_dt(self, value):
-        """Return (datetime_or_None, error_message_or_None)."""
-        if not isinstance(value, str) or not value.strip():
-            return None, "must be a non-empty string"
-        try:
-            return datetime.strptime(value, _DATETIME_FORMAT), None
-        except ValueError:
-            return None, ("must match format 'YYYY-MM-DDTHH:MM:SS' "
-                          "(for example 2026-07-07T12:12:00)")
+    def _coerce_dt(self, value):
+        """
+        Return a naive-UTC datetime if value is a datetime, else None.
+
+        PyYAML parses an unquoted timestamp like 2026-07-07T12:12:00 into a
+        datetime. Timezone-aware values (trailing Z or offset) are normalized to
+        naive UTC. Non-datetime values (str, date-only, None) return None; the
+        schema validator is responsible for reporting the type error.
+        """
+        if isinstance(value, datetime):
+            if value.tzinfo is not None:
+                value = value.astimezone(timezone.utc).replace(tzinfo=None)
+            return value
+        return None
 
     def _now_utc_naive(self):
         # Compare naive datetimes consistently in UTC.
@@ -95,13 +103,14 @@ class MetadataValidator(BaseValidator):
         value = rule_data.get('creationDate')
         if value is None:
             return [], None
-        dt, err = self._parse_dt(value)
-        if err:
-            return [self.create_error(
-                "Field 'creationDate' {}.".format(err), field='creationDate')], None
+        dt = self._coerce_dt(value)
+        if dt is None:
+            # Not a datetime; the schema validator reports the type error.
+            return [], None
         if dt > self._now_utc_naive():
             return [self.create_error(
-                "Field 'creationDate' '{}' is in the future; it must be in the past.".format(value),
+                "Field 'creationDate' '{}' is in the future; it must be in the past.".format(
+                    dt.strftime(_DATETIME_FORMAT)),
                 field='creationDate')], dt
         return [], dt
 
@@ -109,16 +118,17 @@ class MetadataValidator(BaseValidator):
         value = rule_data.get('reviewDate')
         if value is None:
             return []
-        dt, err = self._parse_dt(value)
-        if err:
-            return [self.create_error(
-                "Field 'reviewDate' {}.".format(err), field='reviewDate')]
+        dt = self._coerce_dt(value)
+        if dt is None:
+            # Not a datetime; the schema validator reports the type error.
+            return []
 
         errors = []
+        review_str = dt.strftime(_DATETIME_FORMAT)
         # Overdue warning (independent of creationDate).
         if dt < self._now_utc_naive():
             errors.append(self.create_warning(
-                "Field 'reviewDate' '{}' is in the past; the review is overdue.".format(value),
+                "Field 'reviewDate' '{}' is in the past; the review is overdue.".format(review_str),
                 field='reviewDate'))
 
         # One-year rule relative to creationDate (baseline decision: creationDate).
@@ -128,7 +138,7 @@ class MetadataValidator(BaseValidator):
                 errors.append(self.create_error(
                     "Field 'reviewDate' '{}' must be at least one year (~365 days) "
                     "after creationDate '{}'.".format(
-                        value, creation_dt.strftime(_DATETIME_FORMAT)),
+                        review_str, creation_dt.strftime(_DATETIME_FORMAT)),
                     field='reviewDate'))
         return errors
 

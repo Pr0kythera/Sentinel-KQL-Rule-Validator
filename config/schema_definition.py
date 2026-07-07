@@ -3,6 +3,8 @@ Schema Definition
 Defines the expected schema structure and data types for Sentinel Analytics Rules.
 """
 
+from datetime import datetime
+
 # Required fields that must be present in every rule
 REQUIRED_FIELDS = [
     'id',
@@ -51,8 +53,10 @@ EXPECTED_TYPES = {
     
     # New metadata fields (Task 4)
     'author': str,
-    'creationDate': str,
-    'reviewDate': str,
+    # Unquoted YAML timestamps (2026-07-07T12:12:00) are parsed as datetime by
+    # PyYAML, so these fields are validated as datetime, not str.
+    'creationDate': datetime,
+    'reviewDate': datetime,
     'environment': str,
     'tables': list,
     # Detection-model identifiers (Task 4f/4g/4h): optional, validated by the
