@@ -115,6 +115,6 @@ incidentConfiguration:
 # - ASIM Fields: 1 WARNING
 #   "IpAddress" should be "SrcIpAddr" or "DstIpAddr"
 #   (Note: the ASIM validator currently matches known names case-insensitively,
-#   so "TargetUserName" and "Computer" are not flagged. See REVIEW_FINDINGS F5.)
+#   so "TargetUserName" and "Computer" are not flagged.)
 # - Timing: PASS (valid timing constraints)
 # - KQL: PASS with .NET (valid syntax and semantics)

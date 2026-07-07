@@ -864,7 +864,7 @@ python -m pytest tests/ -q
 - **Added**: customDetails and entity `columnName` values must map to real query
   output columns with exact case (rebuilt KQL output-column extraction).
 - **Added**: groupByCustomDetails/groupByEntities consistency checks.
-- **Added**: pytest test suite; `ROADMAP.md`; `REVIEW_FINDINGS.md`.
+- **Added**: pytest test suite.
 - **Changed**: ASIM validator is now registered (was defined but never run);
   affirmations moved behind `--affirmations` (off by default).
 - **Fixed**: deprecated `datetime.utcnow()`, duplicate config module, shadowed
