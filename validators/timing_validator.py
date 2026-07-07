@@ -5,7 +5,7 @@ Validates queryFrequency and queryPeriod fields.
 
 import re
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 from .base_validator import BaseValidator
 
