@@ -21,6 +21,8 @@ from validators.sentinel_constraints_validator import SentinelConstraintsValidat
 from validators.kql_validator import KQLValidator
 from validators.yaml_validator import YAMLValidator
 from validators.asim_field_validator import ASIMFieldValidator
+from validators.mitre_attack_validator import MitreAttackValidator
+from config.attack_data import pinned_version
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
 from config.schema_definition import SENTINEL_SCHEMA
@@ -169,16 +171,19 @@ class ValidationResult:
 class SentinelLinter:
     """Main linter orchestrator"""
     
-    def __init__(self, kql_schema: dict = None, enable_kql_validation: bool = True):
+    def __init__(self, kql_schema: dict = None, enable_kql_validation: bool = True,
+                 attack_stix_path=None, enforce_detection_ids: bool = False):
         """
         Initialize the linter with validators.
-        
+
         Args:
             kql_schema: Optional schema configuration for KQL semantic validation
             enable_kql_validation: Whether to enable KQL validation (requires .NET)
+            attack_stix_path: Optional override path to an ATT&CK STIX bundle
+            enforce_detection_ids: Promote DET/AN/DC existence failures to errors
         """
         self.validators = []
-        
+
         # Always-enabled validators
         self.validators.append(GuidValidator())
         self.validators.append(SchemaValidator())
@@ -188,6 +193,11 @@ class SentinelLinter:
         self.validators.append(YAMLValidator())
         # ASIM column-name convention checks (warning-level advisories)
         self.validators.append(ASIMFieldValidator())
+        # MITRE ATT&CK tactic/technique validation against pinned v18.x STIX data
+        self.validators.append(MitreAttackValidator(
+            attack_stix_path=attack_stix_path,
+            enforce_detection_ids=enforce_detection_ids,
+        ))
         
         # Optional KQL validator (may not be available if .NET not installed)
         self.kql_validator = None
@@ -328,6 +338,7 @@ def print_json_output(results: List[ValidationResult]):
     
     output = {
         'timestamp': datetime.now(timezone.utc).isoformat(),
+        'attackVersion': pinned_version(),
         'summary': {
             'total_files': len(results),
             'passed': sum(1 for r in results if r.passed),
@@ -375,7 +386,14 @@ Examples:
     python linter.py detection.yaml --no-kql-validation
         """
     )
-    
+
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='Sentinel KQL Rule Validator (ATT&CK v{})'.format(pinned_version()),
+        help='Show tool and pinned ATT&CK data version, then exit'
+    )
+
     parser.add_argument(
         'file',
         nargs='?',
@@ -419,6 +437,18 @@ Examples:
         type=Path,
         help='Path to custom schema configuration JSON file'
     )
+
+    parser.add_argument(
+        '--attack-stix-path',
+        type=Path,
+        help='Override path to an ATT&CK STIX bundle JSON (default: pinned vendored bundle)'
+    )
+
+    parser.add_argument(
+        '--enforce-detection-ids',
+        action='store_true',
+        help='Treat DET/AN/DC existence failures as errors instead of warnings'
+    )
     
     args = parser.parse_args()
     
@@ -441,7 +471,12 @@ Examples:
     
     # Initialize linter
     enable_kql = not args.no_kql_validation
-    linter = SentinelLinter(kql_schema=kql_schema, enable_kql_validation=enable_kql)
+    linter = SentinelLinter(
+        kql_schema=kql_schema,
+        enable_kql_validation=enable_kql,
+        attack_stix_path=args.attack_stix_path,
+        enforce_detection_ids=args.enforce_detection_ids,
+    )
     
     # Validate files
     results = []
