@@ -1,0 +1,54 @@
+# Fully valid rule exercising the Task 4 metadata fields.
+# Expected validation result: PASS (no errors) when KQL validation is disabled or
+# the query output columns match the entity/customDetails references.
+id: 7a1b2c3d-4e5f-6789-abcd-1234567890ab
+name: "Suspicious Process Execution"
+kind: "Scheduled"
+description: "Detects suspicious command line process execution on monitored hosts."
+severity: "Medium"
+enabled: true
+version: "1.0.0"
+
+# New Task 4 metadata fields
+author: "contact.prokythera@gmail.com"
+creationDate: "2026-01-01T09:00:00"
+reviewDate: "2027-06-01T09:00:00"
+environment: "Production"
+tables:
+  - "SecurityEvent"
+
+queryFrequency: "1h"
+queryPeriod: "1h"
+triggerOperator: "GreaterThan"
+triggerThreshold: 0
+query: |
+  SecurityEvent
+  | where TimeGenerated >= ago(1h)
+  | where EventID == 4688
+  | project TimeGenerated, Account, Computer, CommandLine
+
+tactics:
+  - "Execution"
+relevantTechniques:
+  - "T1059"
+
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: "Account"
+  - entityType: Host
+    fieldMappings:
+      - identifier: FullName
+        columnName: "Computer"
+
+customDetails:
+  CommandLine: CommandLine
+
+eventGroupingSettings:
+  aggregationKind: "SingleAlert"
+
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: false

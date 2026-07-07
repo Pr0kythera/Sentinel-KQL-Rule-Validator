@@ -1,0 +1,51 @@
+# Rule with deliberately invalid Task 4 metadata fields.
+# Expected validation result: FAIL, with these Metadata Validator errors:
+#   - author: not a valid email address
+#   - reviewDate: less than one year after creationDate (and overdue warning)
+#   - environment: empty string
+#   - tables: duplicate entry (error), and a table not referenced by the query (warning)
+id: 8b2c3d4e-5f6a-7890-bcde-234567890abc
+name: "Metadata Errors Example"
+kind: "Scheduled"
+description: "Example rule that violates the Task 4 metadata rules."
+severity: "Low"
+enabled: false
+version: "1.0.0"
+
+# Invalid metadata
+author: "not-an-email"
+creationDate: "2026-01-01T09:00:00"
+reviewDate: "2026-03-01T09:00:00"
+environment: ""
+tables:
+  - "SecurityEvent"
+  - "SecurityEvent"
+  - "SigninLogs"
+
+queryFrequency: "1h"
+queryPeriod: "1h"
+triggerOperator: "GreaterThan"
+triggerThreshold: 0
+query: |
+  SecurityEvent
+  | where TimeGenerated >= ago(1h)
+  | project TimeGenerated, Account, Computer
+
+tactics:
+  - "Execution"
+relevantTechniques:
+  - "T1059"
+
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: "Account"
+
+eventGroupingSettings:
+  aggregationKind: "SingleAlert"
+
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: false
