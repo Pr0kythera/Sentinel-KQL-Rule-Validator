@@ -89,6 +89,9 @@ class SentinelConstraintsValidator(BaseValidator):
         
         # Validate Grouping Errors
         errors.extend(self._validate_grouping_configuration(rule_data))
+
+        # Validate grouping references point at real customDetails/entities
+        errors.extend(self._validate_grouping_references(rule_data))
         
         # Validate customDetails keys (must start with letter, alphanumeric only)
         errors.extend(self._validate_custom_details_keys(rule_data))
@@ -554,6 +557,62 @@ class SentinelConstraintsValidator(BaseValidator):
                     field='incidentConfiguration.groupingConfiguration.lookbackDuration'
                 ))
         
+        return errors
+
+    def _validate_grouping_references(self, rule_data: dict) -> List[Dict]:
+        """
+        Cross-field: groupByCustomDetails must reference keys defined in
+        customDetails, and groupByEntities must reference entity types present in
+        entityMappings. Sentinel silently ignores dangling references, so this
+        catches a common configuration mistake (Task 7).
+        """
+        errors = []
+
+        incident_config = rule_data.get('incidentConfiguration')
+        if not isinstance(incident_config, dict):
+            return errors
+        grouping_config = incident_config.get('groupingConfiguration')
+        if not isinstance(grouping_config, dict):
+            return errors
+
+        base = 'incidentConfiguration.groupingConfiguration'
+
+        # groupByCustomDetails -> customDetails keys
+        group_custom = grouping_config.get('groupByCustomDetails')
+        if isinstance(group_custom, list):
+            custom_details = rule_data.get('customDetails')
+            defined_keys = set(custom_details.keys()) if isinstance(custom_details, dict) else set()
+            for idx, key in enumerate(group_custom):
+                if not isinstance(key, str):
+                    continue
+                if key not in defined_keys:
+                    available = ', '.join(sorted(defined_keys)) if defined_keys else '(none)'
+                    errors.append(self.create_error(
+                        "groupByCustomDetails references '{}' which is not a defined "
+                        "customDetails key. Defined keys: {}".format(key, available),
+                        field='{}.groupByCustomDetails[{}]'.format(base, idx)
+                    ))
+
+        # groupByEntities -> entityMappings entity types
+        group_entities = grouping_config.get('groupByEntities')
+        if isinstance(group_entities, list):
+            entity_mappings = rule_data.get('entityMappings')
+            declared_types = set()
+            if isinstance(entity_mappings, list):
+                for entity in entity_mappings:
+                    if isinstance(entity, dict) and isinstance(entity.get('entityType'), str):
+                        declared_types.add(entity['entityType'])
+            for idx, entity_type in enumerate(group_entities):
+                if not isinstance(entity_type, str):
+                    continue
+                if entity_type not in declared_types:
+                    available = ', '.join(sorted(declared_types)) if declared_types else '(none)'
+                    errors.append(self.create_error(
+                        "groupByEntities references entity type '{}' which is not in "
+                        "entityMappings. Mapped types: {}".format(entity_type, available),
+                        field='{}.groupByEntities[{}]'.format(base, idx)
+                    ))
+
         return errors
 
     def _parse_duration_to_hours(self, duration: str) -> float:
