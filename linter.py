@@ -22,6 +22,7 @@ from validators.kql_validator import KQLValidator
 from validators.yaml_validator import YAMLValidator
 from validators.asim_field_validator import ASIMFieldValidator
 from validators.mitre_attack_validator import MitreAttackValidator
+from validators.metadata_validator import MetadataValidator
 from config.attack_data import pinned_version
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
@@ -193,6 +194,8 @@ class SentinelLinter:
         self.validators.append(YAMLValidator())
         # ASIM column-name convention checks (warning-level advisories)
         self.validators.append(ASIMFieldValidator())
+        # New metadata field checks (author, dates, environment, tables)
+        self.validators.append(MetadataValidator())
         # MITRE ATT&CK tactic/technique validation against pinned v18.x STIX data
         self.validators.append(MitreAttackValidator(
             attack_stix_path=attack_stix_path,
