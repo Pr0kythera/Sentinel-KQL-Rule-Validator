@@ -13,8 +13,8 @@ severity: "Critical"  # ERROR: Must be "Informational", "Low", "Medium", or "Hig
 enabled: true
 # Valid metadata so the demonstrated errors below stand alone (Task 4 fields).
 author: "contact.prokythera@gmail.com"
-creationDate: "2026-01-01T09:00:00"
-reviewDate: "2027-06-01T09:00:00"
+creationDate: 2026-01-01T09:00:00
+reviewDate: 2027-06-01T09:00:00
 environment: "Production"
 tables:
   - "SecurityEvent"

@@ -265,8 +265,8 @@ New rules must include these metadata fields (validated by the Metadata Validato
 | Field | Type | Rule |
 |-------|------|------|
 | `author` | string | A valid ASCII email address. |
-| `creationDate` | string | Exact `YYYY-MM-DDTHH:MM:SS` (UTC); must be in the past. |
-| `reviewDate` | string | Same format; must be at least ~1 year (365 days) after `creationDate`. Warns when overdue. |
+| `creationDate` | datetime | Unquoted YAML timestamp, e.g. `2026-07-07T12:12:00` (UTC); must be in the past. |
+| `reviewDate` | datetime | Unquoted timestamp; must be at least ~1 year (365 days) after `creationDate`. Warns when overdue. |
 | `environment` | string | Non-empty; optionally constrained to an allow-list. |
 | `tables` | list | Non-empty, unique strings; warns when a declared table is unreferenced by the query. |
 

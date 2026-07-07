@@ -12,16 +12,13 @@ def v():
     return MetadataValidator()
 
 
-def _fmt(dt):
-    return dt.strftime("%Y-%m-%dT%H:%M:%S")
-
-
 def _past(days):
-    return _fmt(datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days))
+    # creationDate/reviewDate are datetime objects (unquoted YAML timestamps).
+    return datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
 
 
 def _future(days):
-    return _fmt(datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days))
+    return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days)
 
 
 # -- author ---------------------------------------------------------------
@@ -41,9 +38,10 @@ def test_empty_author_errors():
 
 # -- creationDate ---------------------------------------------------------
 
-def test_creation_date_bad_format_errors():
-    errs, dt = v()._validate_creation_date({"creationDate": "2026-07-07 12:00:00"})
-    assert errs and dt is None
+def test_creation_date_string_is_ignored_here():
+    # A string is a type error owned by the schema validator, not this validator.
+    errs, dt = v()._validate_creation_date({"creationDate": "2026-07-07T12:00:00"})
+    assert errs == [] and dt is None
 
 
 def test_creation_date_future_errors():
@@ -56,11 +54,19 @@ def test_creation_date_valid_returns_datetime():
     assert errs == [] and isinstance(dt, datetime)
 
 
+def test_creation_date_tzaware_is_normalized():
+    # A timezone-aware future datetime must still be flagged (no TypeError).
+    future_aware = datetime.now(timezone.utc) + timedelta(days=2)
+    errs, dt = v()._validate_creation_date({"creationDate": future_aware})
+    assert any("future" in e["message"] for e in errs)
+    assert dt.tzinfo is None
+
+
 # -- reviewDate -----------------------------------------------------------
 
 def test_review_date_too_soon_errors():
     creation = datetime(2026, 1, 1, 0, 0, 0)
-    res = v()._validate_review_date({"reviewDate": "2026-06-01T00:00:00"}, creation)
+    res = v()._validate_review_date({"reviewDate": datetime(2026, 6, 1, 0, 0, 0)}, creation)
     assert any("at least one year" in e["message"] for e in res)
 
 
