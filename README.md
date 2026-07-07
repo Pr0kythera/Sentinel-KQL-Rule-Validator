@@ -217,6 +217,68 @@ Provide your own schema definition for KQL semantic validation:
 python linter.py detection.yaml --schema custom_schema.json
 ```
 
+### Additional Flags
+
+```bash
+# Show the tool and pinned ATT&CK data version, then exit
+python linter.py --version
+
+# Use a specific ATT&CK STIX bundle instead of the pinned vendored one
+python linter.py detection.yaml --attack-stix-path /path/to/enterprise-attack.json
+
+# Treat DET/AN/DC (detectionStrategies/analytics/dataComponents) existence
+# failures as errors instead of warnings
+python linter.py detection.yaml --enforce-detection-ids
+
+# Show occasional encouraging messages (off by default for deterministic CI)
+python linter.py detection.yaml --affirmations
+```
+
+## MITRE ATT&CK Validation and Data
+
+Tactics and techniques are validated against real MITRE ATT&CK STIX data, not a
+hardcoded list. The tool pins **ATT&CK v18.1** (Sentinel's tactic enum aligns with
+the pre-v19 tactic model, so v18.x is used rather than v19).
+
+The ~48 MB STIX bundle is **not committed**; it is restored by a vendor step from
+the pinned version and SHA-256 in `config/attack/pinned_version.json`:
+
+```bash
+# Download and hash-verify the pinned bundle (run once at setup, and to refresh)
+python scripts/vendor_attack_data.py
+
+# Verify an existing local bundle without re-downloading
+python scripts/vendor_attack_data.py --check
+```
+
+To bump the ATT&CK version, edit `config/attack/pinned_version.json` (version,
+filename, source_url, sha256) and re-run the vendor script. The validated ATT&CK
+version is shown by `--version` and included as `attackVersion` in JSON output.
+
+If the bundle is not vendored, MITRE existence checks are skipped with a visible
+warning (format checks still run); they never silently pass.
+
+## New Rule Metadata Fields
+
+New rules must include these metadata fields (validated by the Metadata Validator):
+
+| Field | Type | Rule |
+|-------|------|------|
+| `author` | string | A valid ASCII email address. |
+| `creationDate` | string | Exact `YYYY-MM-DDTHH:MM:SS` (UTC); must be in the past. |
+| `reviewDate` | string | Same format; must be at least ~1 year (365 days) after `creationDate`. Warns when overdue. |
+| `environment` | string | Non-empty; optionally constrained to an allow-list. |
+| `tables` | list | Non-empty, unique strings; warns when a declared table is unreferenced by the query. |
+
+These optional fields are validated against ATT&CK v18.x when present (warning by
+default, promotable with `--enforce-detection-ids`):
+
+| Field | Format | Example |
+|-------|--------|---------|
+| `detectionStrategies` | `DET` + digits | `DET0317` |
+| `analytics` | `AN` + digits | `AN0886` |
+| `dataComponents` | `DC` + digits | `DC0032` |
+
 ## Validation Checks
 
 The linter performs validations in the following order:
@@ -775,9 +837,40 @@ For issues, questions, or suggestions:
 - The Sentinel community for feedback and testing
 - MITRE for the ATT&CK framework
 
+## Testing
+
+The project uses `pytest`. Tests run without a live network: tests that need the
+ATT&CK bundle skip cleanly when it is not vendored, and KQL tests skip when the
+.NET runtime is unavailable.
+
+```bash
+pip install -r requirements.txt   # includes pytest
+python -m pytest tests/ -q
+```
+
 ## Version History
 
-### v1.2.0 (Current)
+### v1.3.0 (Current)
+- **Added**: MITRE ATT&CK validation against pinned STIX v18.1 data
+  (`MitreAttackValidator`) - tactic enum, technique existence
+  (deprecated/revoked distinguished), tactic/technique consistency,
+  sub-technique parent checks, and DET/AN/DC identifiers. Replaces the old
+  hardcoded tactic list and T1000-T1999 regex.
+- **Added**: `scripts/vendor_attack_data.py` to vendor/verify the pinned bundle;
+  `--attack-stix-path`, `--enforce-detection-ids`, and `--version` flags.
+- **Added**: New required rule metadata fields (`author`, `creationDate`,
+  `reviewDate`, `environment`, `tables`) via `MetadataValidator`, and optional
+  `detectionStrategies`/`analytics`/`dataComponents`.
+- **Added**: customDetails and entity `columnName` values must map to real query
+  output columns with exact case (rebuilt KQL output-column extraction).
+- **Added**: groupByCustomDetails/groupByEntities consistency checks.
+- **Added**: pytest test suite; `ROADMAP.md`; `REVIEW_FINDINGS.md`.
+- **Changed**: ASIM validator is now registered (was defined but never run);
+  affirmations moved behind `--affirmations` (off by default).
+- **Fixed**: deprecated `datetime.utcnow()`, duplicate config module, shadowed
+  method, and non-ASCII characters; removed an unrelated PE-malware script.
+
+### v1.2.0
 - **Added**: YAML Format Validator - Comprehensive YAML formatting validation
   - Tab character detection (YAML spec requires spaces)
   - Indentation consistency checking with GCD-based analysis
