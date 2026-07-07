@@ -12,8 +12,10 @@ Behavior (see CLAUDE.md Task 2):
 - relevantTechniques: format pre-check, then existence in the v18.x technique set.
   Distinguishes "invalid format", "valid format but not in ATT&CK v18.x", and
   "exists but is deprecated/revoked in v18.x".
-- tactic/technique consistency: warns when a declared technique's ATT&CK tactic(s)
-  are not among the rule's declared tactics (Sentinel does not itself enforce this).
+- tactic/technique consistency: errors when a declared technique's ATT&CK tactic(s)
+  are not among the rule's declared tactics, so the deployment pipeline fails until
+  the correct tactic is added (Sentinel does not itself enforce this, but this gate
+  does by choice).
 - sub-technique parent consistency: confirms the parent technique exists.
 - DET / AN / DC: format then existence. Warning severity by default (Sentinel does
   not consume these yet), promotable to error via enforce_detection_ids.
@@ -237,9 +239,9 @@ class MitreAttackValidator(BaseValidator):
             if not (tech_tactics & declared_shortnames):
                 expected = ", ".join(sorted(
                     SHORTNAME_TO_SENTINEL_TACTIC.get(s, s) for s in tech_tactics))
-                errors.append(self.create_warning(
+                errors.append(self.create_error(
                     "Technique '{}' belongs to tactic(s) {} but none of those are in "
-                    "the rule's declared tactics. Consider adding one.".format(
+                    "the rule's declared tactics. Add the correct tactic.".format(
                         technique, expected),
                     field='relevantTechniques[{}]'.format(idx)
                 ))

@@ -60,11 +60,12 @@ def test_revoked_technique_errors_distinctly(validator):
     assert any('deprecated or revoked' in r['message'] for r in results)
 
 
-def test_tactic_technique_consistency_warns(validator):
-    # T1071 is Command and Control; declaring only Execution should warn.
+def test_tactic_technique_consistency_errors(validator):
+    # T1071 is Command and Control; declaring only Execution must be an error so
+    # the deployment pipeline fails.
     rule = {"tactics": ["Execution"], "relevantTechniques": ["T1071"]}
     results = validator.validate(rule, FILE)
-    assert any(r['severity'] == 'warning' and 'declared tactics' in r['message']
+    assert any(r['severity'] == 'error' and 'declared tactics' in r['message']
                for r in results)
 
 
