@@ -20,7 +20,13 @@ REQUIRED_FIELDS = [
     'tactics',
     'relevantTechniques',
     'eventGroupingSettings',
-    'incidentConfiguration'
+    'incidentConfiguration',
+    # New metadata fields (Task 4): required for new rules.
+    'author',
+    'creationDate',
+    'reviewDate',
+    'environment',
+    'tables',
 ]
 
 # Expected data types for fields
@@ -43,6 +49,18 @@ EXPECTED_TYPES = {
     'query': str,
     'suppressionEnabled': bool,
     
+    # New metadata fields (Task 4)
+    'author': str,
+    'creationDate': str,
+    'reviewDate': str,
+    'environment': str,
+    'tables': list,
+    # Detection-model identifiers (Task 4f/4g/4h): optional, validated by the
+    # MITRE validator against ATT&CK v18.x. Presence/type only here.
+    'detectionStrategies': list,
+    'analytics': list,
+    'dataComponents': list,
+
     # Lists
     'tactics': list,
     'relevantTechniques': list,
