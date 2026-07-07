@@ -1,0 +1,8 @@
+{
+  "filename": "Kusto.Language.dll",
+  "nuget_package": "Microsoft.Azure.Kusto.Language",
+  "nuget_version": "unknown",
+  "sha256": "2066cb77c658a5e9b49d0ac03cc5e9f150c9d9af71534de1754f1d81ba7a9f1e",
+  "size_bytes": 1816064,
+  "notes": "SHA-256 recorded for the committed Kusto.Language.dll so the loader can verify integrity at load time. The exact NuGet version could not be read on the build machine (no working .NET runtime); confirm it from the assembly version (assembly.GetName().Version) on a .NET-capable machine and fill in nuget_version. Prefer restoring this DLL from the pinned NuGet package at setup rather than shipping the opaque binary."
+}

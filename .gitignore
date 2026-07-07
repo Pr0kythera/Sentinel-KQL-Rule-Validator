@@ -1,3 +1,16 @@
+# Local Claude Code instructions (do not commit)
+CLAUDE.md
+
+# Local working docs (kept locally, not pushed to main)
+REVIEW_FINDINGS.md
+ROADMAP.md
+
+# Vendored ATT&CK STIX bundle (~48 MB) - restored by the vendor step from the
+# pinned version/hash in config/attack/pinned_version.json. Committing the bundle
+# itself is optional; see Task 2 storage decision.
+config/attack/*.json
+!config/attack/pinned_version.json
+
 # Python
 __pycache__/
 *.py[cod]

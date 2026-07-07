@@ -1,0 +1,10 @@
+{
+  "attack_version": "18.1",
+  "domain": "enterprise-attack",
+  "filename": "enterprise-attack-18.1.json",
+  "source_url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack-18.1.json",
+  "sha256": "f857d8f78f2f0c0b7db321a711a39fba98546c1e3076a657684850c83d0962fb",
+  "size_bytes": 50713170,
+  "retrieved_utc": "2026-07-07",
+  "notes": "Pinned Enterprise ATT&CK v18.1 STIX bundle. Sentinel's tactic enum aligns with the pre-v19 tactic model, so validate against v18.x, not v19. DET/AN/DC objects were introduced in v18 and are validatable against this same bundle."
+}

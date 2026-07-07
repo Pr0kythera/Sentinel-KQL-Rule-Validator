@@ -1,7 +1,10 @@
 # Example Invalid Microsoft Sentinel Analytics Rule
-# This file intentionally contains errors for testing
-
-# ERROR: Invalid GUID format
+# This file intentionally contains errors for testing. Real errors it triggers:
+#   - tactic "Initial Access" contains spaces (must be "InitialAccess")
+#   - entityMappings uses "entityype" (typo, missing "entityType")
+#   - customDetails declares the key "CompositeZScore" twice
+#   - queryFrequency (1h) exceeds queryPeriod (30m)
+#   - with KQL validation enabled, the query has syntax typos ("sorty", "projectf")
 id: b1c2d3e4-f5a6-7890-bcde-f12345678901
 
 name: "Test Invalid Detection"
@@ -9,11 +12,17 @@ displayName: "Test Invalid Detection Display Name"
 version: "1.0.0"
 kind: "Scheduled"
 
+# Valid metadata so the intentional errors below stand alone (Task 4 fields).
+author: "contact.prokythera@gmail.com"
+creationDate: "2026-01-01T09:00:00"
+reviewDate: "2027-06-01T09:00:00"
+environment: "Production"
+tables:
+  - "SecurityEvent"
+
 description: "This is a test detection with intentional errors"
 
-severity: "High"  # ERROR: Invalid severity level
-
-# ERROR: Boolean as string instead of bool
+severity: "High"
 enabled: true
 
 # ERROR: queryFrequency exceeds queryPeriod
@@ -23,14 +32,14 @@ queryPeriod: "30m"
 triggerOperator: "GreaterThan"
 triggerThreshold: 0
 
+# ERROR: tactic contains a space
 tactics:
   - "Initial Access"
 
-# Error: Invalid technique ID format
 relevantTechniques:
   - "T1078"
 
-# ERROR: Invalid KQL syntax (typo in 'sort')
+# ERROR: Invalid KQL syntax (typos) - caught when KQL validation is enabled
 query: |
   SecurityEvent
   | where EventID == 4625

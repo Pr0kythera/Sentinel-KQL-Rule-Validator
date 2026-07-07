@@ -309,6 +309,24 @@ minutes = self._parse_time_to_minutes(time_str)
 
 ## Testing
 
+### Automated Tests (pytest)
+
+The project has a `pytest` suite under `tests/`. Every new or changed behavior
+must ship with tests. The suite runs without a live network: tests needing the
+ATT&CK STIX bundle skip when it is not vendored, and KQL tests skip when the .NET
+runtime is unavailable (see `tests/conftest.py`).
+
+```bash
+pip install -r requirements.txt   # includes pytest
+python -m pytest tests/ -q
+```
+
+When adding a validator, add a `tests/test_<name>.py` asserting on the specific
+error/warning and field path, not just pass/fail, and provide a valid and an
+invalid fixture in `examples/`.
+
+Do not use non-ASCII characters anywhere (code, comments, messages, docs).
+
 ### Manual Testing
 
 1. Create test YAML files in `examples/`:

@@ -3,7 +3,6 @@ YAML Validator
 Validates YAML formatting, whitespace consistency, and duplicate keys.
 """
 
-import re
 from pathlib import Path
 from typing import List, Dict, Set, Tuple
 import yaml

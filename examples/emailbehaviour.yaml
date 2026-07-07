@@ -6,7 +6,7 @@ name: Suspicious Deviation in Email Sending Behavior (Baseline Anomaly)
 description: |
   Detects anomalous email activity per user by comparing the last hour of email behavior against
   a 14-day statistical baseline. This includes frequency of emails sent, average email size,
-  number of attachments, and percentage of out-of-hours emails (outside 9AM–5PM).
+  number of attachments, and percentage of out-of-hours emails (outside 9AM-5PM).
   The rule uses standard deviation-based z-score analysis to identify statistically significant
   deviations which may indicate data exfiltration, compromised accounts, or misuse.
 severity: Medium
@@ -24,11 +24,16 @@ suppressionEnabled: false
 tactics:
   - Exfiltration
   - CommandAndControl
-techniques:
-  - T1020  # Automated Exfiltration
-  - T1071  # Application Layer Protocol
 kind: Scheduled
 version: 1.0.0
+
+# Metadata (Task 4)
+author: "contact.prokythera@gmail.com"
+creationDate: "2026-01-01T09:00:00"
+reviewDate: "2027-06-01T09:00:00"
+environment: "Production"
+tables:
+  - "EmailEvents"
 query: |
   // ==============================================
   // Email Anomaly Detection (Behavioral Baseline)
@@ -108,11 +113,8 @@ alertDetailsOverride:
   alertDisplayNameFormat: "Anomalous Email Behavior Detected for {{SenderFromAddress}}"
   alertDescriptionFormat: |
     Detected abnormal email sending behavior for user {{SenderFromAddress}}.
-    Composite Z-Score exceeded threshold (≥3), indicating significant deviation from baseline:
+    Composite Z-Score exceeded threshold (>=3), indicating significant deviation from baseline.
       - Emails Sent: {{Current_EmailsSent}} (Baseline: {{Baseline_EmailsSent}})
-      - Avg Size (KB): {{Current_AvgSizeKB}}
-      - Attachments: {{Current_AvgAttachments}}
-      - Out-of-hours %: {{Current_PctOutOfHours}}
     This may indicate potential data exfiltration or account compromise.
 customDetails:
   CompositeZScore: CompositeZScore
@@ -125,3 +127,11 @@ customDetails:
 relevantTechniques:
   - T1020
   - T1071
+
+eventGroupingSettings:
+  aggregationKind: "SingleAlert"
+
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: false

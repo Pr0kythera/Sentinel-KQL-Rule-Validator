@@ -23,24 +23,6 @@ class SentinelConstraintsValidator(BaseValidator):
     # Valid values for triggerOperator field
     VALID_TRIGGER_OPERATORS = ["GreaterThan", "LessThan", "Equal", "gt", "lt", "eq"]
     
-    # Valid MITRE ATT&CK v13 tactics (no spaces)
-    VALID_TACTICS = [
-        "Reconnaissance",
-        "ResourceDevelopment",
-        "InitialAccess",
-        "Execution",
-        "Persistence",
-        "PrivilegeEscalation",
-        "DefenseEvasion",
-        "CredentialAccess",
-        "Discovery",
-        "LateralMovement",
-        "Collection",
-        "CommandAndControl",
-        "Exfiltration",
-        "Impact"
-    ]
-    
     # Valid values for eventGroupingSettings.aggregationKind
     VALID_AGGREGATION_KINDS = ["SingleAlert", "AlertPerResult"]
     
@@ -78,12 +60,9 @@ class SentinelConstraintsValidator(BaseValidator):
         # Validate triggerThreshold field
         errors.extend(self._validate_trigger_threshold(rule_data))
         
-        # Validate tactics field
-        errors.extend(self._validate_tactics(rule_data))
-        
-        # Validate relevantTechniques field
-        errors.extend(self._validate_relevant_techniques(rule_data))
-        
+        # Note: tactics and relevantTechniques are validated by the dedicated
+        # MitreAttackValidator against the pinned ATT&CK v18.x STIX data.
+
         # Validate name field constraints
         errors.extend(self._validate_name_constraints(rule_data))
         
@@ -110,6 +89,9 @@ class SentinelConstraintsValidator(BaseValidator):
         
         # Validate Grouping Errors
         errors.extend(self._validate_grouping_configuration(rule_data))
+
+        # Validate grouping references point at real customDetails/entities
+        errors.extend(self._validate_grouping_references(rule_data))
         
         # Validate customDetails keys (must start with letter, alphanumeric only)
         errors.extend(self._validate_custom_details_keys(rule_data))
@@ -208,119 +190,6 @@ class SentinelConstraintsValidator(BaseValidator):
             ))
         
         return errors
-    
-    def _validate_tactics(self, rule_data: dict) -> List[Dict]:
-        """Validate tactics field against MITRE ATT&CK v13"""
-        errors = []
-        
-        tactics = rule_data.get('tactics')
-        if not tactics:
-            # Tactics is mandatory according to documentation
-            return errors  # Would be caught by schema validator if truly required
-        
-        if not isinstance(tactics, list):
-            errors.append(self.create_error(
-                f"Field 'tactics' must be a list, got {type(tactics).__name__}",
-                field='tactics'
-            ))
-            return errors
-        
-        # Validate each tactic
-        for idx, tactic in enumerate(tactics):
-            if not isinstance(tactic, str):
-                errors.append(self.create_error(
-                    f"Tactic at index {idx} must be a string, got {type(tactic).__name__}",
-                    field=f'tactics[{idx}]'
-                ))
-                continue
-            
-            # Check if tactic is in valid list
-            if tactic not in self.VALID_TACTICS:
-                # Check if it might be a spacing issue
-                tactic_no_space = tactic.replace(" ", "")
-                if tactic_no_space in self.VALID_TACTICS:
-                    errors.append(self.create_error(
-                        f"Tactic '{tactic}' contains spaces. "
-                        f"MITRE ATT&CK tactics must not contain spaces. Use '{tactic_no_space}' instead",
-                        field=f'tactics[{idx}]'
-                    ))
-                else:
-                    valid_list = ", ".join(self.VALID_TACTICS)
-                    errors.append(self.create_error(
-                        f"Tactic '{tactic}' is not a valid MITRE ATT&CK v13 tactic. "
-                        f"Valid tactics are: {valid_list}",
-                        field=f'tactics[{idx}]'
-                    ))
-        
-        return errors
-    
-    def _validate_relevant_techniques(self, rule_data: dict) -> List[Dict]:
-        """Validate relevantTechniques field format"""
-        errors = []
-        
-        techniques = rule_data.get('relevantTechniques')
-        if not techniques:
-            # relevantTechniques is mandatory according to documentation
-            return errors  # Would be caught by schema validator if truly required
-        
-        if not isinstance(techniques, list):
-            errors.append(self.create_error(
-                f"Field 'relevantTechniques' must be a list, got {type(techniques).__name__}",
-                field='relevantTechniques'
-            ))
-            return errors
-        
-        # Validate each technique
-        for idx, technique in enumerate(techniques):
-            if not isinstance(technique, str):
-                errors.append(self.create_error(
-                    f"Technique at index {idx} must be a string, got {type(technique).__name__}",
-                    field=f'relevantTechniques[{idx}]'
-                ))
-                continue
-            
-            # Validate format: T#### or T####.### (T1000-T1999 range)
-            # Main technique pattern: T followed by 4 digits
-            # Sub-technique pattern: T####.### (up to 3 digits after decimal)
-            
-            if not self._is_valid_technique_format(technique):
-                errors.append(self.create_error(
-                    f"Technique '{technique}' has invalid format. "
-                    f"Must be 'T####' (e.g., T1078) or 'T####.###' (e.g., T1078.001) "
-                    f"where #### is in range 1000-1999",
-                    field=f'relevantTechniques[{idx}]'
-                ))
-        
-        return errors
-    
-    def _is_valid_technique_format(self, technique: str) -> bool:
-        """
-        Check if technique follows valid MITRE ATT&CK format.
-        Valid formats: T1234 or T1234.001
-        Technique ID range: T1000-T1999
-        """
-        # Pattern: T followed by 4 digits, optionally followed by . and 1-3 digits
-        pattern = r'^T(\d{4})(?:\.(\d{1,3}))?$'
-        match = re.match(pattern, technique)
-        
-        if not match:
-            return False
-        
-        # Extract technique number
-        technique_num = int(match.group(1))
-        
-        # Validate range (T1000-T1999)
-        if technique_num < 1000 or technique_num > 1999:
-            return False
-        
-        # If sub-technique exists, validate it
-        if match.group(2):
-            sub_technique_num = int(match.group(2))
-            # Sub-techniques typically range from 001-999
-            if sub_technique_num < 1 or sub_technique_num > 999:
-                return False
-        
-        return True
     
     def _validate_name_constraints(self, rule_data: dict) -> List[Dict]:
         """Validate name field constraints"""
@@ -688,6 +557,62 @@ class SentinelConstraintsValidator(BaseValidator):
                     field='incidentConfiguration.groupingConfiguration.lookbackDuration'
                 ))
         
+        return errors
+
+    def _validate_grouping_references(self, rule_data: dict) -> List[Dict]:
+        """
+        Cross-field: groupByCustomDetails must reference keys defined in
+        customDetails, and groupByEntities must reference entity types present in
+        entityMappings. Sentinel silently ignores dangling references, so this
+        catches a common configuration mistake (Task 7).
+        """
+        errors = []
+
+        incident_config = rule_data.get('incidentConfiguration')
+        if not isinstance(incident_config, dict):
+            return errors
+        grouping_config = incident_config.get('groupingConfiguration')
+        if not isinstance(grouping_config, dict):
+            return errors
+
+        base = 'incidentConfiguration.groupingConfiguration'
+
+        # groupByCustomDetails -> customDetails keys
+        group_custom = grouping_config.get('groupByCustomDetails')
+        if isinstance(group_custom, list):
+            custom_details = rule_data.get('customDetails')
+            defined_keys = set(custom_details.keys()) if isinstance(custom_details, dict) else set()
+            for idx, key in enumerate(group_custom):
+                if not isinstance(key, str):
+                    continue
+                if key not in defined_keys:
+                    available = ', '.join(sorted(defined_keys)) if defined_keys else '(none)'
+                    errors.append(self.create_error(
+                        "groupByCustomDetails references '{}' which is not a defined "
+                        "customDetails key. Defined keys: {}".format(key, available),
+                        field='{}.groupByCustomDetails[{}]'.format(base, idx)
+                    ))
+
+        # groupByEntities -> entityMappings entity types
+        group_entities = grouping_config.get('groupByEntities')
+        if isinstance(group_entities, list):
+            entity_mappings = rule_data.get('entityMappings')
+            declared_types = set()
+            if isinstance(entity_mappings, list):
+                for entity in entity_mappings:
+                    if isinstance(entity, dict) and isinstance(entity.get('entityType'), str):
+                        declared_types.add(entity['entityType'])
+            for idx, entity_type in enumerate(group_entities):
+                if not isinstance(entity_type, str):
+                    continue
+                if entity_type not in declared_types:
+                    available = ', '.join(sorted(declared_types)) if declared_types else '(none)'
+                    errors.append(self.create_error(
+                        "groupByEntities references entity type '{}' which is not in "
+                        "entityMappings. Mapped types: {}".format(entity_type, available),
+                        field='{}.groupByEntities[{}]'.format(base, idx)
+                    ))
+
         return errors
 
     def _parse_duration_to_hours(self, duration: str) -> float:

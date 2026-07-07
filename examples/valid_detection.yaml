@@ -1,28 +1,37 @@
 # Example Valid Microsoft Sentinel Analytics Rule
-# This file demonstrates a properly formatted detection
+# Demonstrates a properly formatted detection that passes all validators
+# (with KQL validation, the entity/customDetails columns must exist in the query
+# output; the query below emits AccountCustomEntity, HostCustomEntity, CommandLine).
 
-id: b1c2d3e4-f5a6-7890-bcde-f12345678901
+id: b1c2d3e4-f5a6-7890-bcde-f12345678999
 name: "Suspicious PowerShell Command Execution"
 displayName: "Suspicious PowerShell Command Execution with Encoding"
 version: "1.0.0"
-lastModified: "2025-10-05T12:45:00Z"
+lastModified: "2026-01-05T12:45:00"
 kind: "Scheduled"
-description: "Detects PowerShell command execution with known malicious or suspicious flags and commands, which may indicate an attempt to evade detection, execute payloads, or perform other malicious activity."
-
+description: "Detects PowerShell command execution with suspicious flags that may indicate an attempt to evade detection or execute payloads."
 severity: "High"
 enabled: true
+
+# Metadata (Task 4)
+author: "contact.prokythera@gmail.com"
+creationDate: "2026-01-01T09:00:00"
+reviewDate: "2027-06-01T09:00:00"
+environment: "Production"
+tables:
+  - "SecurityEvent"
+
 queryFrequency: "5m"
 queryPeriod: "5m"
-triggerOperator: "gt"
-triggerThreshold: 
+triggerOperator: "GreaterThan"
+triggerThreshold: 0
 tactics:
-  - "InitialAccess"
   - "Execution"
-
 relevantTechniques:
-  - "T1234.001"
+  - "T1059.001"
 query: |
   SecurityEvent
+  | where TimeGenerated >= ago(5m)
   | where EventID == 4688 and CommandLine has "powershell.exe"
   | where CommandLine has_any("-EncodedCommand", "-NonInteractive", "-ExecutionPolicy Bypass", "IEX")
   | summarize count() by Computer, Account, CommandLine, bin(TimeGenerated, 5m)
@@ -52,8 +61,5 @@ entityMappings:
     fieldMappings:
       - identifier: "FullName"
         columnName: "HostCustomEntity"
-alertDetailsOverride:
-  alertDisplayNameFormat: "Suspicious PowerShell command on host: {0}"
-  alertDescriptionFormat: "A suspicious PowerShell command was executed on host. Please investigate."
 customDetails:
-  CompositeZScore: CompositeZScore
+  CommandLine: CommandLine

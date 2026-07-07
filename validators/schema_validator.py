@@ -4,7 +4,7 @@ Validates YAML structure and data types against expected schema.
 """
 
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from .base_validator import BaseValidator
 from config.schema_definition import EXPECTED_TYPES, REQUIRED_FIELDS
