@@ -7,6 +7,21 @@ description: |
   Some entity mappings use non-ASIM field names which will generate warnings.
 severity: "Medium"
 enabled: true
+version: "1.0.0"
+
+# Metadata (Task 4)
+author: "contact.prokythera@gmail.com"
+creationDate: "2026-01-01T09:00:00"
+reviewDate: "2027-06-01T09:00:00"
+environment: "Production"
+tables:
+  - "SecurityEvent"
+
+tactics:
+  - "CredentialAccess"
+relevantTechniques:
+  - "T1110"
+
 queryFrequency: "5m"
 queryPeriod: "5m"
 triggerOperator: "GreaterThan"
@@ -62,6 +77,14 @@ entityMappings:
       - identifier: Address
         columnName: "SrcIpAddr"  # CORRECT: ASIM normalized name
 
+eventGroupingSettings:
+  aggregationKind: "SingleAlert"
+
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: false
+
 # Common ASIM field naming patterns:
 # 
 # User/Account entities:
@@ -89,9 +112,9 @@ entityMappings:
 # - Schema: PASS (all required fields present)
 # - Entity Mappings: PASS (valid structure)
 # - Strong Identifiers: PASS (using correct identifiers)
-# - ASIM Fields: 3 WARNINGS
-#   1. "TargetUserName" should be "TargetUsername"
-#   2. "Computer" is not ASIM normalized
-#   3. "IpAddress" should be "SrcIpAddr" or "DstIpAddr"
+# - ASIM Fields: 1 WARNING
+#   "IpAddress" should be "SrcIpAddr" or "DstIpAddr"
+#   (Note: the ASIM validator currently matches known names case-insensitively,
+#   so "TargetUserName" and "Computer" are not flagged. See REVIEW_FINDINGS F5.)
 # - Timing: PASS (valid timing constraints)
-# - KQL: PASS (valid syntax and semantics)
+# - KQL: PASS with .NET (valid syntax and semantics)
