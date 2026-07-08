@@ -7,6 +7,8 @@ Handles building the Kusto.Language DLL
 import sys
 import subprocess
 import shutil
+import hashlib
+import json
 from pathlib import Path
 import argparse
 
@@ -57,10 +59,39 @@ class SetupManager:
         print("\nAll prerequisites met!\n")
         return True
     
-    def build_dll(self):
-        """Clone and build Kusto.Language DLL"""
+    def _dll_matches_pin(self):
+        """
+        Return True if a committed Kusto.Language.dll exists and its SHA-256
+        matches the pinned value in libs/kusto_dll_pinned.json.
+
+        The repository ships a pinned, prebuilt DLL, so a valid copy means we do
+        not need to clone and compile Microsoft's Kusto-Query-Language source
+        (which is unpinned 'master' and can fail to compile, e.g. CS0246).
+        """
+        dll_path = self.libs_dir / "Kusto.Language.dll"
+        pin_path = self.libs_dir / "kusto_dll_pinned.json"
+        if not dll_path.exists() or not pin_path.exists():
+            return False
+        try:
+            expected = json.loads(pin_path.read_text(encoding="utf-8")).get("sha256")
+            if not expected:
+                return False
+            actual = hashlib.sha256(dll_path.read_bytes()).hexdigest()
+            return actual == expected
+        except Exception:
+            return False
+
+    def build_dll(self, force=False):
+        """Clone and build the Kusto.Language DLL, or reuse the pinned one."""
+        # Prefer the committed, hash-pinned DLL over recompiling upstream master.
+        if not force and self._dll_matches_pin():
+            print("Kusto.Language.dll already present and matches the pinned "
+                  "SHA-256; skipping the source build.")
+            print("  (Use 'build-dll --force' to rebuild from upstream source.)\n")
+            return True
+
         print("Building Kusto.Language DLL...\n")
-        
+
         # Create libs directory
         self.libs_dir.mkdir(exist_ok=True)
         
@@ -291,7 +322,14 @@ def main():
         choices=['check', 'build-dll', 'install-deps', 'verify', 'full-setup'],
         help='Action to perform'
     )
-    
+
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Force rebuilding the DLL from upstream source even if the pinned '
+             'DLL is already present (build-dll only)'
+    )
+
     args = parser.parse_args()
     
     manager = SetupManager()
@@ -300,9 +338,12 @@ def main():
         success = manager.check_prerequisites()
     
     elif args.action == 'build-dll':
-        if not manager.check_prerequisites():
-            return 1
-        success = manager.build_dll()
+        # When reusing the pinned DLL, the .NET SDK is not required; only check
+        # prerequisites when an actual source build will happen.
+        if args.force or not manager._dll_matches_pin():
+            if not manager.check_prerequisites():
+                return 1
+        success = manager.build_dll(force=args.force)
     
     elif args.action == 'install-deps':
         success = manager.install_dependencies()
@@ -315,18 +356,27 @@ def main():
         print("SENTINEL DETECTION LINTER - FULL SETUP")
         print("="*60 + "\n")
         
-        if not manager.check_prerequisites():
-            return 1
-        
+        # The .NET SDK is only needed to compile the DLL from source. When the
+        # committed, hash-pinned DLL is present we reuse it and skip that
+        # requirement, so the pipeline never recompiles Microsoft's unpinned
+        # 'master' (the source of the CS0246 build errors).
+        need_build = args.force or not manager._dll_matches_pin()
+        if need_build:
+            if not manager.check_prerequisites():
+                return 1
+        else:
+            print("Using the committed, pinned Kusto.Language.dll "
+                  "(skipping the .NET source build).\n")
+
         if not manager.install_dependencies():
             return 1
-        
-        if not manager.build_dll():
+
+        if not manager.build_dll(force=args.force):
             return 1
-        
+
         if not manager.verify_installation():
             return 1
-        
+
         success = True
     
     return 0 if success else 1

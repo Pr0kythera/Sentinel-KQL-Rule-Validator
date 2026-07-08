@@ -87,14 +87,21 @@ venv\Scripts\activate.bat
 The setup script will:
 1. Check prerequisites
 2. Install Python dependencies
-3. Clone and build the Kusto.Language DLL
+3. Reuse the committed, hash-pinned Kusto.Language DLL (or build it from source
+   only if the pinned DLL is missing or `--force` is passed to `build-dll`)
 4. Verify the installation
 
 ```bash
 python setup.py full-setup
 ```
 
-This process takes 2-5 minutes depending on your internet connection and machine speed.
+Because a pinned `libs/Kusto.Language.dll` ships with the repo, setup does not
+recompile Microsoft's Kusto-Query-Language source by default. This keeps the build
+deterministic and avoids compile failures from that unpinned upstream. The .NET SDK
+is only required if you force a source rebuild (`python setup.py build-dll --force`);
+running the linter needs only the .NET runtime.
+
+This process takes under a minute when the pinned DLL is reused.
 
 ### Alternative: Quick Start Script
 
