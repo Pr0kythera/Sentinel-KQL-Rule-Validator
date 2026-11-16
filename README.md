@@ -12,6 +12,7 @@ A comprehensive Python-based linter for validating Microsoft Sentinel Analytics 
   - Duplicate key detection at all nesting levels
   - Trailing whitespace detection
   - Empty lines with whitespace detection
+- **PowerShell YAML Cross-Check (optional)**: Parses each file with PowerShell `Get-Content -Raw | ConvertFrom-Yaml` (YamlDotNet) and reports any YAML errors it raises next to the other findings, including parser disagreements with PyYAML
 - **Data Type Validation**: Ensures all fields have correct data types (bool vs string, etc.)
 - **Sentinel Constraints Validation**: Validates all Microsoft Sentinel field requirements (kind, severity, tactics, techniques, limits, etc.)
 - **ASIM Field Naming**: Warns when entity mappings don't follow ASIM normalized field naming conventions
@@ -165,6 +166,9 @@ sentinel-detection-linter/
 |   |-- asim_field_validator.py            # ASIM field naming validation
 |   |-- timing_validator.py                # Query timing validation
 |   |-- kql_validator.py                   # KQL syntax/semantic validation
+|   |-- powershell_yaml_validator.py       # Optional ConvertFrom-Yaml (PowerShell) cross-check
+|   |-- powershell/
+|       |-- Test-YamlFiles.ps1             # PowerShell side of the cross-check
 |
 |-- utils/
 |   |-- yaml_loader.py                     # Safe YAML loading
@@ -239,7 +243,67 @@ python linter.py detection.yaml --enforce-detection-ids
 
 # Show occasional encouraging messages (off by default for deterministic CI)
 python linter.py detection.yaml --affirmations
+
+# Also parse with PowerShell Get-Content -Raw | ConvertFrom-Yaml (see below)
+python linter.py --directory ./detections/ --powershell-yaml
 ```
+
+### PowerShell YAML Cross-Check (`--powershell-yaml`)
+
+Parses every file a second time with PowerShell and prints any YAML error that
+`ConvertFrom-Yaml` raises together with the linter's other findings.
+
+**Prerequisites.** `ConvertFrom-Yaml` is not a built-in cmdlet; it comes from the
+third-party [`powershell-yaml`](https://github.com/cloudbase/powershell-yaml) module
+(a YamlDotNet wrapper):
+
+```powershell
+Install-Module powershell-yaml -Scope CurrentUser
+```
+
+PowerShell 7+ (`pwsh`) is preferred; Windows PowerShell 5.1 (`powershell`) also works.
+
+**Usage.**
+
+```bash
+python linter.py detection.yaml --powershell-yaml
+python linter.py --directory ./detections/ --powershell-yaml
+python linter.py detection.yaml --powershell-yaml --pwsh-path /opt/microsoft/powershell/7/pwsh
+python linter.py detection.yaml --powershell-yaml --powershell-timeout 60
+```
+
+**What it does.**
+
+- Equivalent to `Get-Content -LiteralPath <file> -Raw -Encoding UTF8 | ConvertFrom-Yaml`.
+  `-Raw` makes PowerShell hand the parser one document instead of an array of lines,
+  `-LiteralPath` stops `[ ] * ?` in file names being treated as wildcards, and
+  `-Encoding UTF8` matches the Python loader.
+- Reports the line and column and the innermost parser message, and keeps the full
+  exception chain under `details` in JSON output.
+- Still runs when PyYAML cannot load the file (normally no other validator runs in
+  that case), so both parsers' verdicts appear side by side.
+- Flags **parser disagreements**: an error when `ConvertFrom-Yaml` rejects a file
+  PyYAML accepted, and a warning when it accepts a file PyYAML rejected or sees
+  different top-level keys.
+- A directory scan uses one PowerShell process for all files. File paths are passed
+  through a temporary JSON file and the process is started without a shell, so file
+  names cannot inject commands.
+- The check is opt-in. If it is requested but PowerShell or `powershell-yaml` is
+  missing, the linter exits with status 1 and an explanatory message on stderr
+  instead of silently skipping the check.
+
+**Example.**
+
+```
+[FAIL] yaml_syntax_error.yaml
+
+  [ERROR] YAML Parser: YAML parsing error at line 7, column 42: mapping values are not allowed here
+
+  [ERROR] PowerShell YAML Validator: ConvertFrom-Yaml rejected the file at line 7, column 42: <YamlDotNet message> [<exception type>]
+```
+
+The exact wording of the second line is produced by YamlDotNet, so it can differ from
+PyYAML's message for the same defect.
 
 ## MITRE ATT&CK Validation and Data
 
