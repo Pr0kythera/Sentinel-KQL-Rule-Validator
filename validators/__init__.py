@@ -10,6 +10,7 @@ from .timing_validator import TimingValidator
 from .kql_validator import KQLValidator
 from .asim_field_validator import ASIMFieldValidator
 from .sentinel_constraints_validator import SentinelConstraintsValidator
+from .powershell_yaml_validator import PowerShellYamlValidator, PowerShellYamlUnavailable
 
 __all__ = [
     'BaseValidator',
@@ -20,5 +21,7 @@ __all__ = [
     'TimingValidator',
     'KQLValidator',
     'ASIMFieldValidator',
-    'SentinelConstraintsValidator'
+    'SentinelConstraintsValidator',
+    'PowerShellYamlValidator',
+    'PowerShellYamlUnavailable'
 ]

@@ -1,0 +1,12 @@
+# Deliberately malformed YAML, used to demonstrate --powershell-yaml.
+# The unquoted ": " inside the description value is a "mapping values are not
+# allowed here" error in PyYAML. Run it with --powershell-yaml to see what
+# ConvertFrom-Yaml reports for the same file.
+id: 11111111-2222-3333-4444-555555555555
+name: Syntax error demo
+description: Detects something suspicious: this colon breaks the plain scalar
+severity: Medium
+kind: Scheduled
+query: |
+  SecurityEvent
+  | take 10

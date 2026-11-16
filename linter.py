@@ -23,6 +23,9 @@ from validators.yaml_validator import YAMLValidator
 from validators.asim_field_validator import ASIMFieldValidator
 from validators.mitre_attack_validator import MitreAttackValidator
 from validators.metadata_validator import MetadataValidator
+from validators.powershell_yaml_validator import (
+    PowerShellYamlValidator, PowerShellYamlUnavailable,
+)
 from config.attack_data import pinned_version
 from utils.yaml_loader import load_yaml_file, YAMLLoadError
 from utils.file_scanner import scan_yaml_files
@@ -140,24 +143,32 @@ class ValidationResult:
         self.warnings = []
         self.passed = True
     
-    def add_error(self, validator_name: str, message: str, field: str = None):
-        """Add an error to the results"""
-        self.errors.append({
+    def add_error(self, validator_name: str, message: str, field: str = None,
+                  details: dict = None):
+        """Add an error to the results (optional structured details appear in JSON output)"""
+        entry = {
             'validator': validator_name,
             'severity': 'error',
             'message': message,
             'field': field
-        })
+        }
+        if details:
+            entry['details'] = details
+        self.errors.append(entry)
         self.passed = False
     
-    def add_warning(self, validator_name: str, message: str, field: str = None):
-        """Add a warning to the results"""
-        self.warnings.append({
+    def add_warning(self, validator_name: str, message: str, field: str = None,
+                    details: dict = None):
+        """Add a warning to the results (optional structured details appear in JSON output)"""
+        entry = {
             'validator': validator_name,
             'severity': 'warning',
             'message': message,
             'field': field
-        })
+        }
+        if details:
+            entry['details'] = details
+        self.warnings.append(entry)
     
     def get_summary(self) -> Dict:
         """Get summary of validation results"""
@@ -173,7 +184,9 @@ class SentinelLinter:
     """Main linter orchestrator"""
     
     def __init__(self, kql_schema: dict = None, enable_kql_validation: bool = True,
-                 attack_stix_path=None, enforce_detection_ids: bool = False):
+                 attack_stix_path=None, enforce_detection_ids: bool = False,
+                 enable_powershell_yaml: bool = False, pwsh_path: str = None,
+                 powershell_timeout: float = 30.0):
         """
         Initialize the linter with validators.
 
@@ -182,6 +195,15 @@ class SentinelLinter:
             enable_kql_validation: Whether to enable KQL validation (requires .NET)
             attack_stix_path: Optional override path to an ATT&CK STIX bundle
             enforce_detection_ids: Promote DET/AN/DC existence failures to errors
+            enable_powershell_yaml: Also parse each file with PowerShell's
+                ``Get-Content -Raw | ConvertFrom-Yaml`` and report its errors
+            pwsh_path: Explicit PowerShell executable (default: pwsh, then powershell)
+            powershell_timeout: Seconds allowed per file for the PowerShell parse
+
+        Raises:
+            PowerShellYamlUnavailable: if enable_powershell_yaml is set but
+                PowerShell or the powershell-yaml module cannot be used. The check was
+                explicitly requested, so it fails loudly rather than being skipped.
         """
         self.validators = []
 
@@ -202,6 +224,18 @@ class SentinelLinter:
             enforce_detection_ids=enforce_detection_ids,
         ))
         
+        # Optional PowerShell ConvertFrom-Yaml cross-check (opt-in)
+        self.powershell_yaml_validator = None
+        if enable_powershell_yaml:
+            ps_validator = PowerShellYamlValidator(
+                pwsh_path=pwsh_path, timeout=powershell_timeout
+            )
+            available, detail = ps_validator.check_available()
+            if not available:
+                raise PowerShellYamlUnavailable(detail)
+            self.powershell_yaml_validator = ps_validator
+            self.validators.append(ps_validator)
+
         # Optional KQL validator (may not be available if .NET not installed)
         self.kql_validator = None
         if enable_kql_validation:
@@ -230,6 +264,12 @@ class SentinelLinter:
             rule_data = load_yaml_file(file_path)
         except YAMLLoadError as e:
             result.add_error('YAML Parser', str(e))
+            # PyYAML failed, so no other validator can run - but the PowerShell
+            # parser works on the raw file and is exactly what is wanted here: its
+            # independent verdict is reported next to the PyYAML error.
+            if self.powershell_yaml_validator is not None:
+                self._run_validator(self.powershell_yaml_validator, result, None,
+                                    file_path, all_yaml_files)
             return result
         except Exception as e:
             result.add_error('File Loader', f'Failed to load file: {str(e)}')
@@ -237,27 +277,34 @@ class SentinelLinter:
         
         # Run all validators
         for validator in self.validators:
-            try:
-                errors = validator.validate(rule_data, file_path, all_yaml_files)
-                
-                for error in errors:
-                    severity = error.get('severity', 'error').lower()
-                    validator_name = validator.validator_name
-                    message = error.get('message', 'Unknown error')
-                    field = error.get('field')
-                    
-                    if severity == 'warning':
-                        result.add_warning(validator_name, message, field)
-                    else:
-                        result.add_error(validator_name, message, field)
-                        
-            except Exception as e:
-                result.add_error(
-                    validator.validator_name,
-                    f'Validator crashed: {str(e)}'
-                )
+            self._run_validator(validator, result, rule_data, file_path, all_yaml_files)
         
         return result
+    
+    @staticmethod
+    def _run_validator(validator, result: ValidationResult, rule_data,
+                       file_path: Path, all_yaml_files: List[Path]):
+        """Run one validator and fold its findings (or its crash) into the result"""
+        try:
+            errors = validator.validate(rule_data, file_path, all_yaml_files)
+            
+            for error in errors:
+                severity = error.get('severity', 'error').lower()
+                validator_name = validator.validator_name
+                message = error.get('message', 'Unknown error')
+                field = error.get('field')
+                details = error.get('details')
+                
+                if severity == 'warning':
+                    result.add_warning(validator_name, message, field, details)
+                else:
+                    result.add_error(validator_name, message, field, details)
+                    
+        except Exception as e:
+            result.add_error(
+                validator.validator_name,
+                f'Validator crashed: {str(e)}'
+            )
     
     def validate_directory(self, directory: Path) -> List[ValidationResult]:
         """
@@ -277,6 +324,10 @@ class SentinelLinter:
         
         results = []
         total = len(yaml_files)
+
+        # One PowerShell process for the whole directory rather than one per file
+        if self.powershell_yaml_validator is not None:
+            self.powershell_yaml_validator.prefetch(yaml_files)
     #  Simple progress output to avoid silent hangs
         for idx, file_path in enumerate(yaml_files, start=1):
             result = self.validate_file(file_path, yaml_files)
@@ -387,6 +438,10 @@ Examples:
   
   Disable KQL validation:
     python linter.py detection.yaml --no-kql-validation
+
+  Also parse with PowerShell Get-Content -Raw | ConvertFrom-Yaml
+  (needs: Install-Module powershell-yaml -Scope CurrentUser):
+    python linter.py --directory ./detections/ --powershell-yaml
         """
     )
 
@@ -453,6 +508,27 @@ Examples:
         help='Treat DET/AN/DC existence failures as errors instead of warnings'
     )
     
+    parser.add_argument(
+        '--powershell-yaml',
+        action='store_true',
+        help='Also parse each file with PowerShell "Get-Content -Raw | ConvertFrom-Yaml" '
+             'and report any YAML errors it raises (requires PowerShell and the '
+             'powershell-yaml module)'
+    )
+
+    parser.add_argument(
+        '--pwsh-path',
+        help='PowerShell executable to use with --powershell-yaml (default: pwsh, '
+             'then powershell, from PATH)'
+    )
+
+    parser.add_argument(
+        '--powershell-timeout',
+        type=float,
+        default=30.0,
+        help='Seconds allowed per file for the PowerShell parse (default: 30)'
+    )
+    
     args = parser.parse_args()
     
     # Validate arguments
@@ -474,12 +550,20 @@ Examples:
     
     # Initialize linter
     enable_kql = not args.no_kql_validation
-    linter = SentinelLinter(
-        kql_schema=kql_schema,
-        enable_kql_validation=enable_kql,
-        attack_stix_path=args.attack_stix_path,
-        enforce_detection_ids=args.enforce_detection_ids,
-    )
+    try:
+        linter = SentinelLinter(
+            kql_schema=kql_schema,
+            enable_kql_validation=enable_kql,
+            attack_stix_path=args.attack_stix_path,
+            enforce_detection_ids=args.enforce_detection_ids,
+            enable_powershell_yaml=args.powershell_yaml,
+            pwsh_path=args.pwsh_path,
+            powershell_timeout=args.powershell_timeout,
+        )
+    except PowerShellYamlUnavailable as e:
+        # stderr keeps --output json on stdout machine-readable
+        print(f"ERROR: --powershell-yaml was requested but cannot run: {e}", file=sys.stderr)
+        return 1
     
     # Validate files
     results = []
